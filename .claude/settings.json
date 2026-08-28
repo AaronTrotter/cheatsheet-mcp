@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.*.local)",
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.*.local)",
+      "Read(**/.env.*)",
+      "Grep(./.env)",
+      "Grep(./.env.local)",
+      "Grep(./.env.*.local)",
+      "Grep(**/.env)",
+      "Grep(**/.env.local)",
+      "Grep(**/.env.*.local)",
+      "Grep(**/.env.*)"
+    ]
+  },
+  "sandbox": {
+    "credentials": {
+      "files": [
+        {
+          "path": ".env.local",
+          "mode": "deny"
+        }
+      ]
+    }
+  }
+}

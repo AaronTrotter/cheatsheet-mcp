@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "cheatsheet": {
+      "url": "https://cheats.aarontrotter.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${CHEATSHEET_API_KEY}"
+      }
+    }
+  }
+}

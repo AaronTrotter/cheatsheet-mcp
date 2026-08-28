@@ -1,0 +1,15 @@
+{
+  "name": "cheatsheet-marketplace",
+  "owner": {
+    "name": "Aaron Trotter",
+    "email": "aaronjtrotter@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "cheatsheet",
+      "source": "./claude-plugin",
+      "description": "Search, read, and manage cheats on your cheatsheet app from Claude, via its hosted MCP connector.",
+      "version": "1.0.0"
+    }
+  ]
+}

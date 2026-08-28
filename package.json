@@ -1,0 +1,16 @@
+{
+  "name": "cheatsheet-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local MCP entry points for the cheatsheet: live-proxy.js forwards to the hosted /mcp connector with a file-loaded key, local-mcp-server/index.js is a standalone REST-backed reference example. Neither require typing an API key into chat.",
+  "main": "live-proxy.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node live-proxy.js",
+    "start:local-example": "node local-mcp-server/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.1"
+  }
+}
