@@ -18,7 +18,7 @@ here.
 1. In any project, run:
    ```
    /plugin marketplace add AaronTrotter/cheatsheet-mcp
-   /plugin install cheatsheet@cheatsheet-marketplace
+   /plugin install cheatsheet@cheatsheet-mcp
    ```
 2. Set `CHEATSHEET_API_KEY` in your shell environment (not a file — see below for why) before
    starting Claude Code, using an API key created at `/user` → API Access on the cheatsheet site.
