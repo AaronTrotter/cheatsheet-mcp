@@ -8,6 +8,11 @@ calls the "hosted connector, key from a shell env var" option — see that doc f
 options (the file-backed `live-proxy.js`, and the standalone REST-backed `local-mcp-server`)
 compare.
 
+PC/Claude Code only — Claude Code plugins don't run on the Claude mobile app. For phone access,
+see [`../local-mcp-server/README.md`](../local-mcp-server/README.md#mobile--claudeai) instead;
+it's the same bearer-token setup, just added as a claude.ai custom connector rather than installed
+here.
+
 ## Install
 
 1. In any project, run:

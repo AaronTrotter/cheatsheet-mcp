@@ -24,6 +24,27 @@ API key supplied:
   `get_revisions`, `add_cheat`, `update_cheat`, `delete_cheat`) over stdio, so Claude Code can
   browse or update your cheats without an API key ever being typed into a chat.
 
+## Mobile / claude.ai
+
+None of the above reach the Claude mobile app — Claude Code plugins and both stdio scripts only
+run from a machine you control. The only way to reach the cheatsheet from mobile is claude.ai's
+own **custom connector** feature, which is really the same "hosted connector, key from a shell env
+var" setup above, just configured in claude.ai's web settings (Settings → Connectors → Add custom
+connector) instead of a `.mcp.json`:
+
+- URL: `https://cheats.aarontrotter.com/mcp`
+- Header: `Authorization: Bearer <your key>`
+
+Once added, claude.ai brokers it through your account rather than a local process, so it works
+from the mobile apps too, not just the browser it was configured in.
+
+Unlike the other options, this means typing the key directly into a field in claude.ai's own
+settings rather than keeping it in a local file or shell variable — you're trusting Anthropic's
+storage of it instead of just your own disk. Create a **separate, read-only-scoped** key at `/user`
+→ API Access just for this connector, rather than reusing a read+write key you also use elsewhere,
+so it can be revoked on its own without touching any other integration if you're ever unsure about
+it.
+
 ## One-time setup
 
 1. **Create an API key.** Sign in at the cheatsheet, go to `/user` → API Access, and create a key.
