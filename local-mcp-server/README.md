@@ -29,22 +29,30 @@ API key supplied:
 
 None of the above reach the Claude mobile app — Claude Code plugins and both stdio scripts only
 run from a machine you control. The only way to reach the cheatsheet from mobile is claude.ai's
-own **custom connector** feature, which is really the same "hosted connector, key from a shell env
-var" setup above, just configured in claude.ai's web settings (Settings → Connectors → Add custom
-connector) instead of a `.mcp.json`:
+own **custom connector** feature, configured in claude.ai's web settings (or Desktop's — it's the
+same account-wide setting either way) at Settings → Connectors → Add custom connector, instead of
+a `.mcp.json`:
 
 - URL: `https://cheats.aarontrotter.com/mcp`
-- Header: `Authorization: Bearer <your key>`
+- Header (optional — see below): `Authorization: Bearer <your key>`
 
 Once added, claude.ai brokers it through your account rather than a local process, so it works
-from the mobile apps too, not just the browser it was configured in.
+from the mobile apps too, not just the browser (or Desktop app) it was configured in.
 
-Unlike the other options, this means typing the key directly into a field in claude.ai's own
-settings rather than keeping it in a local file or shell variable — you're trusting Anthropic's
-storage of it instead of just your own disk. Create a **separate, read-only-scoped** key at `/user`
-→ API Access just for this connector, rather than reusing a read+write key you also use elsewhere,
-so it can be revoked on its own without touching any other integration if you're ever unsure about
-it.
+Two ways to authenticate this connector:
+
+- **Bearer.** Type the key directly into the header field above. Unlike the other options in this
+  repo, this means the key lives in a field in claude.ai's own settings rather than a local file
+  or shell variable — you're trusting Anthropic's storage of it instead of just your own disk.
+  Create a **separate, read-only-scoped** key at `/user` → API Access just for this connector,
+  rather than reusing a read+write key you also use elsewhere, so it can be revoked on its own
+  without touching any other integration if you're ever unsure about it.
+- **OAuth — no key to paste at all.** Add the connector with no header. The hosted connector
+  publishes standard OAuth discovery metadata, so claude.ai detects it automatically and shows a
+  normal cheatsheet sign-in and consent screen instead — a scoped key is minted and handed over
+  behind the scenes, never visible to you or typed into claude.ai's settings. This avoids the
+  bearer method's tradeoff above entirely, since there's no key for claude.ai to store. Prefer
+  this over the bearer method when it's available.
 
 ## One-time setup
 
