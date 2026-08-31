@@ -1,0 +1,11 @@
+{
+  "name": "cheatsheet-plugin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bundled MCP server for the cheatsheet Claude Code plugin.",
+  "main": "server.js",
+  "type": "commonjs",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

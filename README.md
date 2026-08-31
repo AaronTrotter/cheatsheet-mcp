@@ -12,22 +12,26 @@ The hosted server itself (`POST /mcp`) lives in the app's own repo, at
 
 Two ways the API key gets supplied, across four setups:
 
-- **Bearer, from a real environment variable** — no local process, just
-  `Authorization: Bearer ${CHEATSHEET_API_KEY}` in the client's own config. Works for:
+- **File-based, from a gitignored `.env.local`** — the key never leaves your disk as a shell var
+  or gets typed into any settings UI. Recommended default. Works for:
   - **[`claude-plugin/`](claude-plugin)** — the hosted connector packaged as an installable Claude
-    Code plugin: `/plugin marketplace add AaronTrotter/cheatsheet-mcp`. PC/Claude Code only.
+    Code plugin: `/plugin marketplace add AaronTrotter/cheatsheet-mcp`. Bundles its own copy of
+    `live-proxy.js` below. PC/Claude Code only.
+  - **[`live-proxy.js`](live-proxy.js)** — the same proxy, wired up by hand instead of through the
+    plugin.
+  - **[`local-mcp-server/`](local-mcp-server)** — a standalone stdio server that wraps the
+    cheatsheet's REST API directly, kept as a customizable reference for a project that wants to
+    modify the tool set or run its own variant.
+- **Bearer, from a real environment variable** — no local process, just
+  `Authorization: Bearer ${CHEATSHEET_API_KEY}` in the client's own config. A persistent
+  environment variable is readable by every process running under your OS user account, so treat
+  this as the fallback for setups the file-based option can't reach, not the default. Needed for:
   - **Mobile / claude.ai** — add `https://cheats.aarontrotter.com/mcp` as a custom connector in
     claude.ai's web settings (Settings → Connectors → Add custom connector), with the same
     `Authorization: Bearer <key>` header. This is the only option that works from the Claude
     mobile app, since claude.ai brokers connectors through your account rather than a local
     process. See [`local-mcp-server/README.md`](local-mcp-server/README.md#mobile--claudeai) for
     the key-scoping recommendation before you paste a key into that field.
-- **File-based, from a gitignored `.env.local`** — the key never leaves your disk as a shell var
-  or gets typed into any settings UI. Works for:
-  - **[`live-proxy.js`](live-proxy.js)** — a local stdio proxy in front of the hosted connector.
-  - **[`local-mcp-server/`](local-mcp-server)** — a standalone stdio server that wraps the
-    cheatsheet's REST API directly, kept as a customizable reference for a project that wants to
-    modify the tool set or run its own variant.
 
 See [`local-mcp-server/README.md`](local-mcp-server/README.md) for the full comparison.
 

@@ -3,10 +3,11 @@
 There are four ways to reach the cheatsheet from an MCP client — pick based on how you want the
 API key supplied:
 
-- **Claude Code plugin, key from a shell env var:** [`../claude-plugin`](../claude-plugin) —
+- **Claude Code plugin, key from `.env.local`:** [`../claude-plugin`](../claude-plugin) —
   packages the same hosted connector as an installable plugin (`/plugin marketplace add`), so you
-  don't hand-edit `.mcp.json` per project. Same shell-env-var requirement as the option below,
-  since it's the same `"type": "http"` entry under the hood.
+  don't hand-edit `.mcp.json` per project. Bundles its own copy of the `live-proxy.js` proxy below,
+  reading the key from a file in Claude Code's persistent plugin data directory rather than a shell
+  environment variable.
 - **Hosted connector, key from a shell env var:** add `https://cheats.aarontrotter.com/mcp`
   directly as a remote `"type": "http"` server, with `Authorization: Bearer ${CHEATSHEET_API_KEY}`
   in `headers`. No local process at all, but `${CHEATSHEET_API_KEY}` only expands from a real

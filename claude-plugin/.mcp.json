@@ -1,9 +1,10 @@
 {
   "mcpServers": {
     "cheatsheet": {
-      "url": "https://cheats.aarontrotter.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${CHEATSHEET_API_KEY}"
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server.js"],
+      "env": {
+        "CHEATSHEET_ENV_FILE": "${CLAUDE_PLUGIN_DATA}/.env.local"
       }
     }
   }

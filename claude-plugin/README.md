@@ -2,16 +2,15 @@
 
 Packages the hosted `https://cheats.aarontrotter.com/mcp` connector (see
 `functions/routes/db/mcpConnector.js` in the [cheatsheet](https://github.com/AaronTrotter/cheatsheet)
-repo) as an installable Claude Code plugin, so a project doesn't need its own hand-edited
-`.mcp.json` entry. This is the same connector [`../local-mcp-server/README.md`](../local-mcp-server/README.md)
-calls the "hosted connector, key from a shell env var" option — see that doc for how the other
-options (the file-backed `live-proxy.js`, and the standalone REST-backed `local-mcp-server`)
-compare.
+repo) as an installable Claude Code plugin. Bundles its own copy of the `live-proxy.js` stdio proxy
+(as `server.js`) so your API key lives in a file, never in a shell environment variable or typed
+into any settings UI, matching the "hosted connector, key from `.env.local`" option
+[`../local-mcp-server/README.md`](../local-mcp-server/README.md) describes.
 
 PC/Claude Code only — Claude Code plugins don't run on the Claude mobile app. For phone access,
 see [`../local-mcp-server/README.md`](../local-mcp-server/README.md#mobile--claudeai) instead;
-it's the same bearer-token setup, just added as a claude.ai custom connector rather than installed
-here.
+that's the one setup that does need a bearer key, since claude.ai brokers connectors through your
+account rather than a local process.
 
 ## Install
 
@@ -20,22 +19,37 @@ here.
    /plugin marketplace add AaronTrotter/cheatsheet-mcp
    /plugin install cheatsheet@cheatsheet-mcp
    ```
-2. Set `CHEATSHEET_API_KEY` in your shell environment (not a file — see below for why) before
-   starting Claude Code, using an API key created at `/user` → API Access on the cheatsheet site.
-3. Restart Claude Code (or `/reload-plugins`) and approve the `cheatsheet` MCP server when
-   prompted.
+   Claude Code installs this plugin's own `@modelcontextprotocol/sdk` dependency automatically from
+   its committed lockfile.
+2. Start Claude Code once and try using the `cheatsheet` server — it won't have a key yet, so it'll
+   fail, but the error tells you the exact file to create, something like:
+   ```
+   CHEATSHEET_API_KEY is not set — create ~/.claude/plugins/data/cheatsheet-cheatsheet-mcp/.env.local
+   with a line like CHEATSHEET_API_KEY=csk_live_... (get a key from
+   https://cheats.aarontrotter.com/user, API Access section), then restart Claude Code.
+   ```
+3. Create that file with a key from the [User](https://cheats.aarontrotter.com/user) page's API
+   Access section (read-only or read + write, depending on what you want Claude to be able to do),
+   restart Claude Code, and approve the `cheatsheet` server when prompted.
 
-## Why a real env var, not `.env.local`
+That file lives outside the plugin's own cache directory, in Claude Code's
+[persistent plugin data directory](https://code.claude.com/docs/en/plugins-reference#persistent-data-directory),
+so it survives plugin updates rather than getting wiped on the next `/plugin update`.
 
-Claude Code only expands `${CHEATSHEET_API_KEY}` in an `"type": "http"` `.mcp.json` entry from a
-real environment variable set before Claude Code starts — there's no way for the plugin's bundled
-`.mcp.json` to read a key out of a gitignored file itself. If you'd rather keep the key in a file,
-skip this plugin and wire up `../live-proxy.js` by hand per
-[`../local-mcp-server/README.md`](../local-mcp-server/README.md) instead; it's a stdio proxy in
-front of the same hosted connector.
+## Why a file, not a shell environment variable
+
+A persistent environment variable is readable by every process running under your OS user account,
+not just Claude Code, and is the kind of thing that ends up pasted into a bug report or crash dump
+by accident. Reading the key from one file that only `server.js` opens keeps it contained to
+exactly the process that needs it. If you'd rather use a direct bearer-token `"type": "http"` entry
+anyway (e.g. to match a setup you already have), see
+[`../local-mcp-server/README.md`](../local-mcp-server/README.md) for that option instead of this
+plugin.
 
 ## Updating
 
 Bump `version` in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) and in this repo's
 [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) when you change
-anything here, so installs on other machines actually pick up the update.
+anything here, so installs on other machines actually pick up the update. If you change
+`server.js`'s dependencies, also run `npm install` in this directory and commit the updated
+`package-lock.json` — Claude Code only reinstalls a plugin's dependencies when the lockfile changes.
