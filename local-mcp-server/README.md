@@ -1,58 +1,24 @@
 # cheatsheet MCP server (local example)
 
-There are four ways to reach the cheatsheet from an MCP client — pick based on how you want the
-API key supplied:
+A standalone local MCP server that wraps the cheatsheet's own REST API directly, instead of
+forwarding to the hosted connector — a customizable starting point for a project that wants to
+modify the tool set or run its own variant. This is one path under Option B (run a local MCP
+server); see the [root README](../README.md) for the full menu, including Option A for claude.ai,
+Desktop, and mobile, which needs no local install at all.
 
-- **Claude Code plugin, key from `.env.local`:** [`../claude-plugin`](../claude-plugin) —
-  packages the same hosted connector as an installable plugin (`/plugin marketplace add`), so you
-  don't hand-edit `.mcp.json` per project. Bundles its own copy of the `live-proxy.js` proxy below,
-  reading the key from a file in Claude Code's persistent plugin data directory rather than a shell
-  environment variable.
-- **Hosted connector, key from a shell env var:** add `https://cheats.aarontrotter.com/mcp`
-  directly as a remote `"type": "http"` server, with `Authorization: Bearer ${CHEATSHEET_API_KEY}`
-  in `headers`. No local process at all, but `${CHEATSHEET_API_KEY}` only expands from a real
-  environment variable already set before Claude Code starts — Claude Code has no way to read it
-  out of a file for an `http`-type entry. See the "MCP Connector" section of
-  [/api-docs](https://cheats.aarontrotter.com/api-docs).
-- **Hosted connector, key from `.env.local`:** [`../live-proxy.js`](../live-proxy.js) — a small
-  local stdio process that reads `.env.local` the same way this script does, then transparently
-  forwards every call to the live connector above. Same "no secret in `.mcp.json`" property as
-  this local script, but backed by the real hosted connector instead of a REST re-implementation.
-- **This script:** for a project that wants to run its own variant — modify the tool set, add
-  project-specific logic, or run fully offline against the REST API. It wraps the cheatsheet's own
-  `/mcp/*` REST API (see `functions/routes/db/mcp.js` in the
-  [cheatsheet](https://github.com/AaronTrotter/cheatsheet) repo) as MCP tools (`search_cheats`, `get_cheat`,
-  `get_revisions`, `add_cheat`, `update_cheat`, `delete_cheat`) over stdio, so Claude Code can
-  browse or update your cheats without an API key ever being typed into a chat.
+**Covers cheats only, not Tasks** — unlike every other way to connect (the hosted MCP Connector,
+the Claude Code plugin, and the MCP proxy all expose Task tools too). Add Task tools yourself here
+if you need them; see `functions/routes/db/mcp.js` in the
+[cheatsheet](https://github.com/AaronTrotter/cheatsheet) repo for the underlying `/mcp/searchTasks`
+etc. endpoints to wrap.
 
-## Mobile / claude.ai
+It exposes the cheat endpoints as MCP tools (`search_cheats`, `get_cheat`, `get_revisions`,
+`add_cheat`, `update_cheat`, `delete_cheat`) over stdio, so Claude Code can browse or update your
+cheats without an API key ever being typed into a chat.
 
-None of the above reach the Claude mobile app — Claude Code plugins and both stdio scripts only
-run from a machine you control. The only way to reach the cheatsheet from mobile is claude.ai's
-own **custom connector** feature, configured in claude.ai's web settings (or Desktop's — it's the
-same account-wide setting either way) at Settings → Connectors → Add custom connector, instead of
-a `.mcp.json`:
-
-- URL: `https://cheats.aarontrotter.com/mcp`
-- Header (optional — see below): `Authorization: Bearer <your key>`
-
-Once added, claude.ai brokers it through your account rather than a local process, so it works
-from the mobile apps too, not just the browser (or Desktop app) it was configured in.
-
-Two ways to authenticate this connector:
-
-- **Bearer.** Type the key directly into the header field above. Unlike the other options in this
-  repo, this means the key lives in a field in claude.ai's own settings rather than a local file
-  or shell variable — you're trusting Anthropic's storage of it instead of just your own disk.
-  Create a **separate, read-only-scoped** key at `/user` → API Access just for this connector,
-  rather than reusing a read+write key you also use elsewhere, so it can be revoked on its own
-  without touching any other integration if you're ever unsure about it.
-- **OAuth — no key to paste at all.** Add the connector with no header. The hosted connector
-  publishes standard OAuth discovery metadata, so claude.ai detects it automatically and shows a
-  normal cheatsheet sign-in and consent screen instead — a scoped key is minted and handed over
-  behind the scenes, never visible to you or typed into claude.ai's settings. This avoids the
-  bearer method's tradeoff above entirely, since there's no key for claude.ai to store. Prefer
-  this over the bearer method when it's available.
+For the other two Option B paths — the [Claude Code plugin](../claude-plugin/README.md) or the
+[MCP proxy](https://cheats.aarontrotter.com/api-docs/mcp-proxy-setup), both of which do reach
+Tasks — see their own docs instead of this one.
 
 ## One-time setup
 
@@ -63,13 +29,13 @@ Two ways to authenticate this connector:
      existing ones.
 2. **Install dependencies** (already done if you just cloned this): `npm install` in this
    directory.
-3. **Create `.env.local` at the repo root** (not in this directory) with `CHEATSHEET_API_KEY=...`
-   pasted in. `.mcp.json` points the server at it via `CHEATSHEET_ENV_FILE`. Root `.env.local` is
-   gitignored and is denied to Claude's own Read/Grep/sandboxed-Bash access via
-   [`.claude/settings.json`](../.claude/settings.json) — it never appears in chat, in `.mcp.json`,
-   or in any shell environment variable.
-4. Restart Claude Code (or start a new session) in this project. It will detect `.mcp.json` and
-   prompt you to approve the `cheatsheet` server the first time.
+3. **Create `.env.local` in this directory** with `CHEATSHEET_API_KEY=...` pasted in. It's
+   gitignored, and denied to Claude's own Read/Grep/sandboxed-Bash access via
+   [`../.claude/settings.json`](../.claude/settings.json) — it never appears in chat, in
+   `.mcp.json`, or in any shell environment variable.
+4. Add a `.mcp.json` in whichever project you want to use this from (see
+   [below](#using-this-from-another-project)) and restart Claude Code there. It will detect
+   `.mcp.json` and prompt you to approve the `cheatsheet` server the first time.
 
 ## Using this from another project
 
@@ -107,9 +73,9 @@ that project:
 3. Restart Claude Code in that project and approve the `cheatsheet` server when prompted.
 
 Without a `CHEATSHEET_ENV_FILE` override it defaults to `.env.local` next to `index.js` (i.e.
-`local-mcp-server/.env.local`) — this repo's own `.mcp.json` sets the override too,
-pointing at its root `.env.local` instead, so every project (this one included) follows the same
-root-level convention.
+`local-mcp-server/.env.local`, the file from step 3 of one-time setup above) — this repo itself has
+no `.mcp.json` of its own, since it isn't a project that needs to browse cheats; the convention
+above is what *other* projects should follow when pointing at this script.
 
 ## Tools exposed
 
@@ -121,6 +87,9 @@ root-level convention.
 | `add_cheat` | `POST /mcp/addCheat` | write |
 | `update_cheat` | `POST /mcp/updateCheat` | write |
 | `delete_cheat` | `POST /mcp/deleteCheat` | write |
+
+No Task tools (`search_tasks`, `get_task`, `add_task`, `update_task`, `delete_task`) — see the note
+at the top of this README.
 
 A key without the required scope gets a normal 401 from the API — the server has no scope logic
 of its own, it just forwards the key and reports back whatever the API says.
