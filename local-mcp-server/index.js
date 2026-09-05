@@ -205,6 +205,105 @@ server.registerTool(
 	}
 );
 
+// Tasks/Brain tools, mirroring the hosted connector's (functions/routes/db/mcpConnector.js in the
+// cheatsheet repo) so both surfaces expose the same set. One `tasks` collection backs two pages and
+// the `category` decides which: note/list appear in Tasks, brief/rules/memory in Brain.
+const TASK_CATEGORIES = ['note', 'list', 'brief', 'rules', 'memory'];
+const TASK_SECTIONS = ['tasks', 'brain'];
+
+server.registerTool(
+	'search_tasks',
+	{
+		title: 'Search tasks',
+		description: 'Search the user\'s private Tasks and Brain entries (to-do lists, notes, and the guidance and memories kept separate from cheats). Returns id, title, category, text, expiresAtMs (null if permanent), and createdDateMs for each match, plus totalPages for pagination. Searches every category unless you narrow it.',
+		inputSchema: {
+			query: z.string().optional().describe('Search text matched against title/text/category; omit to list the most recently created items.'),
+			section: z.enum(TASK_SECTIONS).optional().describe('Restrict to one page\'s categories: \'tasks\' for note/list, \'brain\' for brief/rules/memory.'),
+			categories: z.string().optional().describe('Comma-separated category names to restrict to, e.g. \'memory\'. Takes precedence over section.'),
+			page: z.number().int().min(1).optional().describe('1-indexed page number (default 1).')
+		}
+	},
+	async ({ query, section, categories, page }) => {
+		return textResult(await callApi('GET', '/mcp/searchTasks', { query: { q: query, section, categories, page } }));
+	}
+);
+
+server.registerTool(
+	'get_task',
+	{
+		title: 'Get task',
+		description: 'Fetch one task or Brain entry by id (as returned by search_tasks).',
+		inputSchema: {
+			id: z.string().describe('The task id.')
+		}
+	},
+	async ({ id }) => {
+		return textResult(await callApi('GET', '/mcp/getTask', { query: { id } }));
+	}
+);
+
+server.registerTool(
+	'get_guides',
+	{
+		title: 'Get guides',
+		description: 'Fetch the user\'s standing guidance from their Brain: \'brief\' entries give orienting context, \'rules\' are hard constraints to follow. Worth calling once at the start of a session, and again if the user says they have changed their guidance.',
+		inputSchema: {}
+	},
+	async () => {
+		const data = await callApi('GET', '/mcp/getGuides');
+		return { content: [{ type: 'text', text: data.guides || 'This user has not written any guides yet.' }] };
+	}
+);
+
+server.registerTool(
+	'add_task',
+	{
+		title: 'Add task',
+		description: 'Create a new Task or Brain entry. Requires a write-scoped API key. Always private, never appears in cheat search.',
+		inputSchema: {
+			title: z.string().max(40).describe('Title (max 40 chars).'),
+			category: z.enum(TASK_CATEGORIES).optional().describe('Category, which also decides where it appears for the user. The Tasks page shows \'note\' and \'list\'; the Brain page shows \'brief\' (context you should know), \'rules\' (constraints you must follow) and \'memory\' (things you record for yourself). Use \'memory\' when saving something you worked out; leave \'brief\' and \'rules\' to the user. Defaults to note.'),
+			text: z.string().describe('The body text.'),
+			duration: z.enum(['permanent', '1h', '1d', '1w']).optional().describe('Auto-expiry: permanent (default), 1h, 1d, or 1w. An expired item is automatically deleted (soft-ceased).')
+		}
+	},
+	async ({ title, category, text, duration }) => {
+		return textResult(await callApi('POST', '/mcp/addTask', { body: { title, category, text, duration } }));
+	}
+);
+
+server.registerTool(
+	'update_task',
+	{
+		title: 'Update task',
+		description: 'Revise a task or Brain entry you own. Requires a write-scoped API key. Append-only under the hood like update_cheat, but these have no visible revision history — this always returns the one current item.',
+		inputSchema: {
+			id: z.string().describe('Id of the item to revise.'),
+			title: z.string().max(40).describe('New title (max 40 chars).'),
+			category: z.enum(TASK_CATEGORIES).optional().describe('New category: note or list (Tasks page), or brief, rules or memory (Brain page). Defaults to note.'),
+			text: z.string().describe('New body text.'),
+			duration: z.enum(['permanent', '1h', '1d', '1w']).optional().describe('New auto-expiry: permanent (default), 1h, 1d, or 1w.')
+		}
+	},
+	async ({ id, title, category, text, duration }) => {
+		return textResult(await callApi('POST', '/mcp/updateTask', { body: { id, title, category, text, duration } }));
+	}
+);
+
+server.registerTool(
+	'delete_task',
+	{
+		title: 'Delete task',
+		description: 'Delete a task or Brain entry you own. Requires a write-scoped API key. Not a hard delete — same soft-cease as delete_cheat. Fails with a 403 if you don\'t own it.',
+		inputSchema: {
+			id: z.string().describe('Id of the item to delete.')
+		}
+	},
+	async ({ id }) => {
+		return textResult(await callApi('POST', '/mcp/deleteTask', { body: { id } }));
+	}
+);
+
 async function main() {
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
