@@ -6,19 +6,20 @@ modify the tool set or run its own variant. This is one path under Option B (run
 server); see the [root README](../README.md) for the full menu, including Option A for claude.ai,
 Desktop, and mobile, which needs no local install at all.
 
-**Covers cheats only, not Tasks** — unlike every other way to connect (the hosted MCP Connector,
-the Claude Code plugin, and the MCP proxy all expose Task tools too). Add Task tools yourself here
-if you need them; see `functions/routes/db/mcp.js` in the
-[cheatsheet](https://github.com/AaronTrotter/cheatsheet) repo for the underlying `/mcp/searchTasks`
-etc. endpoints to wrap.
+It exposes all twelve `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
+`get_cheat`, `get_revisions`, `add_cheat`, `update_cheat`, `delete_cheat`), Tasks and Brain
+(`search_tasks`, `get_task`, `add_task`, `update_task`, `delete_task`) and `get_guides` — so Claude
+Code can browse or update your cheats and tasks without an API key ever being typed into a chat.
+That's the same tool set the hosted MCP Connector, the Claude Code plugin, and the MCP proxy
+expose, so switching between them doesn't change what an agent can do.
 
-It exposes the cheat endpoints as MCP tools (`search_cheats`, `get_cheat`, `get_revisions`,
-`add_cheat`, `update_cheat`, `delete_cheat`) over stdio, so Claude Code can browse or update your
-cheats without an API key ever being typed into a chat.
+Because this one wraps the REST API rather than forwarding to the hosted connector, it's the path
+to start from if you want to *change* that tool set — drop tools you don't want, or reshape their
+arguments. See `functions/routes/db/mcp.js` in the
+[cheatsheet](https://github.com/AaronTrotter/cheatsheet) repo for the underlying endpoints.
 
-For the other two Option B paths — the [Claude Code plugin](../claude-plugin/README.md) or the
-[MCP proxy](https://cheats.aarontrotter.com/api-docs/mcp-proxy-setup), both of which do reach
-Tasks — see their own docs instead of this one.
+For the other two Option B paths, see the [Claude Code plugin](../claude-plugin/README.md) or the
+[MCP proxy](https://cheats.aarontrotter.com/api-docs/mcp-proxy-setup) docs instead of this one.
 
 ## One-time setup
 
@@ -87,14 +88,25 @@ above is what *other* projects should follow when pointing at this script.
 | `add_cheat` | `POST /mcp/addCheat` | write |
 | `update_cheat` | `POST /mcp/updateCheat` | write |
 | `delete_cheat` | `POST /mcp/deleteCheat` | write |
+| `search_tasks` | `GET /mcp/searchTasks` | read |
+| `get_task` | `GET /mcp/getTask` | read |
+| `get_guides` | `GET /mcp/getGuides` | read |
+| `add_task` | `POST /mcp/addTask` | write |
+| `update_task` | `POST /mcp/updateTask` | write |
+| `delete_task` | `POST /mcp/deleteTask` | write |
 
-No Task tools (`search_tasks`, `get_task`, `add_task`, `update_task`, `delete_task`) — see the note
-at the top of this README.
+The task tools cover Brain as well as Tasks — they're one collection server-side, split by
+`category` (`note`/`list` on the Tasks page, `brief`/`rules`/`memory` on the Brain page). Narrow a
+search to one of them with `search_tasks`' `section` argument. `get_guides` returns the user's
+`brief` and `rules` entries as one formatted block, the same text the hosted connector sends as its
+`instructions` on connect; this server has no equivalent hook, so call it explicitly when you want
+that context.
 
 A key without the required scope gets a normal 401 from the API — the server has no scope logic
 of its own, it just forwards the key and reports back whatever the API says.
 
-`search_cheats`, `get_cheat`, `add_cheat`, and `update_cheat` all add a `url` field (not part of
-the underlying API response) pointing at the cheat's page — `<CHEATSHEET_SITE_URL>/?code=<id>`,
+Every cheat tool except `delete_cheat` adds a `url` field (not part of the underlying API response)
+pointing at the cheat's page — per result for `search_cheats`, per revision for `get_revisions`,
+top-level for `get_cheat`/`add_cheat`/`update_cheat` — `<CHEATSHEET_SITE_URL>/?code=<id>`,
 matching how the browser itself links to a cheat (see `public/js/script.js`). Defaults to
 `https://cheats.aarontrotter.com`; override with `CHEATSHEET_SITE_URL` if that ever changes.

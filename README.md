@@ -67,7 +67,7 @@ or shell environment variable. Pick one:
 - **[`local-mcp-server/`](local-mcp-server/README.md)** — a standalone stdio server that wraps the
   cheatsheet's REST API directly instead of forwarding to the hosted connector, kept as a
   customizable reference for a project that wants to modify the tool set or run its own variant.
-  Currently covers cheats only, not Tasks — see its own README.
+  Covers the same 12 tools as the hosted connector — see its own README.
 
 All three keep the key on your own machine and don't reach the mobile app, which has no local
 process to run one in.
