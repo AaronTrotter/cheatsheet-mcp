@@ -95,9 +95,11 @@ above is what *other* projects should follow when pointing at this script.
 | `update_task` | `POST /mcp/updateTask` | write |
 | `delete_task` | `POST /mcp/deleteTask` | write |
 
-The task tools cover Brain as well as Tasks — they're one collection server-side, split by
-`category` (`note`/`list` on the Tasks page, `brief`/`rules`/`memory` on the Brain page). Narrow a
-search to one of them with `search_tasks`' `section` argument. `get_guides` returns the user's
+The task tools cover Brain as well as Tasks. Server-side those are two collections behind one
+shared set of endpoints, and an item's `category` decides which it belongs to (`note`/`list` on the
+Tasks page, `brief`/`rules`/`memory` on the Brain page); each page carries its own Free-tier cap of
+5 items. None of that is visible through these tools, which still address an item by id or
+category. Narrow a search to one page with `search_tasks`' `section` argument. `get_guides` returns the user's
 `brief` and `rules` entries as one formatted block, the same text the hosted connector sends as its
 `instructions` on connect; this server has no equivalent hook, so call it explicitly when you want
 that context.

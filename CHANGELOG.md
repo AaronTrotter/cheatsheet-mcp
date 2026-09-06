@@ -10,6 +10,21 @@ number, declared in both `claude-plugin/.claude-plugin/plugin.json` and
 machine compares against. It moves only when something inside that directory changes, so it does
 not track the repository version. Each entry below records where the plugin stood at that release.
 
+## [1.1.1] - 2026-09-06
+
+Plugin version at this release: 2.0.0 (unchanged).
+
+### Changed
+
+- Documentation only: no tool, argument or behaviour in this repository changed. Cheatsheet has
+  split Tasks and Brain into two Firestore collections (`tasks` and `brain`) so that each carries
+  its own Free-tier cap of 5 items, instead of the two sharing one allowance between them. The task
+  tools are unaffected, because the split sits behind one shared set of REST endpoints and every
+  tool still addresses an item by id or by category. `local-mcp-server/README.md` and the
+  tool-registration comment in `local-mcp-server/index.js` both described the old single-collection
+  model and now describe the new one, including the per-page cap. The 1.1.0 entry below is left as
+  written, since it was accurate at that release.
+
 ## [1.1.0] - 2026-09-05
 
 Plugin version at this release: 2.0.0 (unchanged).

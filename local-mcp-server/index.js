@@ -206,8 +206,10 @@ server.registerTool(
 );
 
 // Tasks/Brain tools, mirroring the hosted connector's (functions/routes/db/mcpConnector.js in the
-// cheatsheet repo) so both surfaces expose the same set. One `tasks` collection backs two pages and
-// the `category` decides which: note/list appear in Tasks, brief/rules/memory in Brain.
+// cheatsheet repo) so both surfaces expose the same set. The two pages have a Firestore collection
+// each (`tasks`, `brain`) behind one shared set of endpoints, and the `category` decides which an
+// item belongs to: note/list appear in Tasks, brief/rules/memory in Brain. That split is invisible
+// from here — every tool below still addresses an item by id or category, exactly as before.
 const TASK_CATEGORIES = ['note', 'list', 'brief', 'rules', 'memory'];
 const TASK_SECTIONS = ['tasks', 'brain'];
 
