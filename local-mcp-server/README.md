@@ -6,10 +6,12 @@ modify the tool set or run its own variant. This is one path under Option B (run
 server); see the [root README](../README.md) for the full menu, including Option A for claude.ai,
 Desktop, and mobile, which needs no local install at all.
 
-It exposes all twelve `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
+It exposes all seventeen `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
 `get_cheat`, `get_revisions`, `add_cheat`, `update_cheat`, `delete_cheat`), Tasks and Brain
-(`search_tasks`, `get_task`, `add_task`, `update_task`, `delete_task`) and `get_guides` — so Claude
-Code can browse or update your cheats and tasks without an API key ever being typed into a chat.
+(`search_tasks`, `get_task`, `add_task`, `update_task`, `delete_task`), Pennies (`search_pennies`,
+`get_penny_summary`, `add_penny`, `fill_penny`, `void_penny`) and `get_guides` — so Claude Code can
+browse or update your cheats, tasks and investment log without an API key ever being typed into a
+chat.
 That's the same tool set the hosted MCP Connector, the Claude Code plugin, and the MCP proxy
 expose, so switching between them doesn't change what an agent can do.
 
@@ -94,6 +96,11 @@ above is what *other* projects should follow when pointing at this script.
 | `add_task` | `POST /mcp/addTask` | write |
 | `update_task` | `POST /mcp/updateTask` | write |
 | `delete_task` | `POST /mcp/deleteTask` | write |
+| `search_pennies` | `GET /mcp/searchPennies` | read |
+| `get_penny_summary` | `GET /mcp/getPennySummary` | read |
+| `add_penny` | `POST /mcp/addPenny` | write |
+| `fill_penny` | `POST /mcp/fillPenny` | write |
+| `void_penny` | `POST /mcp/voidPenny` | write |
 
 The task tools cover Brain as well as Tasks. Server-side those are two collections behind one
 shared set of endpoints, and an item's `category` decides which it belongs to (`note`/`list` on the
@@ -103,6 +110,15 @@ category. Narrow a search to one page with `search_tasks`' `section` argument. `
 `brief` and `rules` entries as one formatted block, the same text the hosted connector sends as its
 `instructions` on connect; this server has no equivalent hook, so call it explicitly when you want
 that context.
+
+The Pennies tools cover the user's own log of investment orders (crypto, stocks, ETFs, bonds,
+commodities and CFDs) and the portfolio derived from it. `search_pennies` returns the raw orders;
+`get_penny_summary` returns positions, cost basis on the moving-average method, realized profit and
+fees, optionally narrowed to one tax year whose boundaries follow the user's country. A logged order
+is immutable, so there is no `update_penny`: `fill_penny` confirms a pending limit order executed,
+and `void_penny` is the only way one is removed. These are financial records, so log only what the
+user has actually stated and never guess a price, quantity or date. A read-only key can read this
+section but cannot change it, which is how you keep an integration out of it entirely.
 
 A key without the required scope gets a normal 401 from the API — the server has no scope logic
 of its own, it just forwards the key and reports back whatever the API says.

@@ -10,6 +10,35 @@ number, declared in both `claude-plugin/.claude-plugin/plugin.json` and
 machine compares against. It moves only when something inside that directory changes, so it does
 not track the repository version. Each entry below records where the plugin stood at that release.
 
+## [1.2.0] - 2026-09-06
+
+Plugin version at this release: 2.0.0 (unchanged).
+
+### Added
+
+- Five Pennies tools in `local-mcp-server/`, matching the hosted MCP Connector: `search_pennies`
+  and `get_penny_summary` (read), `add_penny`, `fill_penny` and `void_penny` (write). Pennies is
+  the user's own private log of investment orders across crypto, stocks, ETFs, bonds, commodities
+  and CFDs, plus the portfolio derived from it.
+- `get_penny_summary` takes an optional `taxYear`, whose boundaries follow the user's own country
+  rather than assuming a calendar year, so a UK tax year correctly runs 6 April to 5 April.
+
+### Changed
+
+- The tool set is now seventeen tools rather than twelve. Both READMEs and the tool table are
+  updated to match.
+
+### Notes
+
+- Pennies was deliberately absent from the API surface until now, on the grounds that a private
+  financial log should not be reachable by a key. It is now reachable on the same terms as
+  everything else: a read-only key can read it but cannot change it, so issuing read-only keys is
+  how an integration is kept out of it.
+- A logged order is immutable, so there is no `update_penny`. `fill_penny` confirms that a pending
+  limit order executed, and `void_penny` is the only way an order is removed.
+- `live-proxy.js` and the Claude Code plugin needed no change: the proxy forwards `tools/list` and
+  `tools/call` rather than re-implementing them, so it picks up the new tools automatically.
+
 ## [1.1.1] - 2026-09-06
 
 Plugin version at this release: 2.0.0 (unchanged).

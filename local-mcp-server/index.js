@@ -306,6 +306,102 @@ server.registerTool(
 	}
 );
 
+// Pennies: the user's own investment order log. Mirrors the same five tools the hosted connector
+// exposes (functions/routes/db/mcpConnector.js in the cheatsheet repo) — the two surfaces are
+// meant to be interchangeable, so a tool added to one belongs in the other in the same change.
+const PENNY_SIDES = ['buy', 'sell', 'stake', 'unstake', 'reward'];
+const PENNY_ITEM_TYPES = ['crypto', 'stock', 'etf', 'bond', 'commodity', 'cfd', 'other'];
+const PENNY_ORDER_KINDS = ['market', 'limit'];
+
+server.registerTool(
+	'search_pennies',
+	{
+		title: 'Search pennies',
+		description: 'List the user\'s own logged investment orders (crypto, stocks, ETFs, bonds, commodities, CFDs), newest first. Returns each order\'s id, side, itemType, assetName, platform, currency, quantity, pricePerUnit, fees, tax, date, status and walletId, plus totalPages for pagination and the type/asset values available to filter on. This is the raw order log; call get_penny_summary for positions and profit.',
+		inputSchema: {
+			itemType: z.enum(PENNY_ITEM_TYPES).optional().describe('Restrict to one instrument type.'),
+			assetName: z.string().optional().describe('Restrict to one asset, e.g. \'BTC\'. Applied within itemType when both are given.'),
+			page: z.number().int().min(1).optional().describe('1-indexed page number (default 1).')
+		}
+	},
+	async ({ itemType, assetName, page }) => {
+		return textResult(await callApi('GET', '/mcp/searchPennies', { query: { itemType, assetName, page } }));
+	}
+);
+
+server.registerTool(
+	'get_penny_summary',
+	{
+		title: 'Get penny summary',
+		description: 'The user\'s portfolio: one holding per asset with quantity held, staked quantity, average cost, cost basis, realized profit or loss, fees paid and (for crypto with a known symbol) a live price and unrealized profit or loss. Each holding carries a ledger of the orders behind it. Cost basis uses the moving-average method. If the user has set a base currency, every figure also comes back converted into it, historical costs at the rate on their own trade date. A holding whose remainingQty is negative means orders are missing from the log, so its cost figures understate the true cost.',
+		inputSchema: {
+			taxYear: z.number().int().optional().describe('Restrict to one tax year, named by the calendar year it starts in. Boundaries follow the user\'s country, so a UK tax year runs 6 April to 5 April. Holdings come back as at that year end; realized profit, staking income and fees cover only that year. Omit for all time. The response lists the years with activity in taxYears.')
+		}
+	},
+	async ({ taxYear }) => {
+		return textResult(await callApi('GET', '/mcp/getPennySummary', { query: { taxYear } }));
+	}
+);
+
+server.registerTool(
+	'add_penny',
+	{
+		title: 'Add penny order',
+		description: 'Log an investment order. Requires a write-scoped API key. This is a financial record the user keeps for themselves, so log only what the user has actually told you happened, and never guess a price, quantity or date.',
+		inputSchema: {
+			side: z.enum(PENNY_SIDES).describe('buy or sell for a trade. stake, unstake and reward are crypto only: stake and unstake move units in and out of staking without changing cost basis, and reward records staking interest paid out.'),
+			itemType: z.enum(PENNY_ITEM_TYPES).describe('The kind of instrument.'),
+			assetName: z.string().max(20).describe('Ticker or short name, e.g. \'BTC\' or \'AAPL\' (max 20 chars).'),
+			currency: z.string().describe('ISO 4217 currency code the order settled in, e.g. \'GBP\'.'),
+			quantity: z.number().positive().describe('Units bought, sold, staked, unstaked, or received as a reward.'),
+			pricePerUnit: z.number().optional().describe('Price per unit in `currency`. Required for buy and sell. Omitted or 0 for stake and unstake. On a reward it is the optional unit value at receipt, reported as staking income and never treated as cost.'),
+			orderKind: z.enum(PENNY_ORDER_KINDS).optional().describe('\'market\' (default) for a trade that already happened. \'limit\' for one placed but not yet executed, which stays out of the summary until confirmed with fill_penny.'),
+			rewardQuantity: z.number().optional().describe('Unstake only: extra units the staking product paid out alongside the unstaked amount.'),
+			platform: z.string().max(30).optional().describe('Where it was traded, e.g. \'Revolut\'.'),
+			walletId: z.string().max(100).optional().describe('Crypto only: the wallet address involved. Dropped for other instrument types.'),
+			fees: z.number().optional().describe('Total fees paid on this order (default 0).'),
+			tax: z.number().optional().describe('Total tax paid or withheld on this order (default 0).'),
+			date: z.number().optional().describe('Trade date as a millisecond timestamp. Defaults to now; backdate it to the real trade date, which is what the currency conversion uses.'),
+			notes: z.string().max(200).optional().describe('Optional note (max 200 chars).')
+		}
+	},
+	async (args) => {
+		return textResult(await callApi('POST', '/mcp/addPenny', { body: { ...args, date: args.date ?? Date.now() } }));
+	}
+);
+
+server.registerTool(
+	'fill_penny',
+	{
+		title: 'Fill penny order',
+		description: 'Confirm that a pending limit order actually executed, which is what lets it count toward the portfolio. Requires a write-scoped API key. Anything omitted keeps what was originally logged, so pass only what differed from the order as placed.',
+		inputSchema: {
+			id: z.string().describe('The pending order\'s id.'),
+			pricePerUnit: z.number().optional().describe('The actual fill price, if it differed from the target.'),
+			fees: z.number().optional().describe('Actual fees, if they differed.'),
+			tax: z.number().optional().describe('Actual tax, if it differed.'),
+			date: z.number().optional().describe('Actual execution date as a millisecond timestamp, if it differed from when the order was placed.')
+		}
+	},
+	async ({ id, pricePerUnit, fees, tax, date }) => {
+		return textResult(await callApi('POST', '/mcp/fillPenny', { body: { id, pricePerUnit, fees, tax, date } }));
+	}
+);
+
+server.registerTool(
+	'void_penny',
+	{
+		title: 'Void penny order',
+		description: 'Void (delete) a logged order, or cancel one still pending. Requires a write-scoped API key. This is how an order is removed: it is a soft delete, and it cannot be undone from here. Voiding changes the user\'s recorded financial history, so only do it when they have asked for that specific order to go.',
+		inputSchema: {
+			id: z.string().describe('The order\'s id.')
+		}
+	},
+	async ({ id }) => {
+		return textResult(await callApi('POST', '/mcp/voidPenny', { body: { id } }));
+	}
+);
+
 async function main() {
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
