@@ -10,6 +10,56 @@ number, declared in both `claude-plugin/.claude-plugin/plugin.json` and
 machine compares against. It moves only when something inside that directory changes, so it does
 not track the repository version. Each entry below records where the plugin stood at that release.
 
+## [Unreleased]
+
+### Changed
+
+- Projects tool descriptions in `local-mcp-server/` now cover shared boards, matching the hosted
+  MCP Connector. A project on Cheatsheet can be shared with other people by email invite, so
+  `search_projects` returns boards shared with the user alongside their own, each carrying a
+  `role` of `owner`, `editor` or `viewer`, and the card tools act on any board the user can
+  write to rather than only ones they created. No tool was added, removed or reshaped: the
+  endpoints behind them changed behaviour, and these descriptions had said "a card you own",
+  which is no longer what they do.
+
+## [1.3.0] - 2026-09-07
+
+Plugin version at this release: 2.0.0 (unchanged).
+
+### Added
+
+- Five Brain tools in `local-mcp-server/`, matching the hosted MCP Connector: `search_brain` and
+  `get_brain` (read), `add_brain`, `update_brain` and `delete_brain` (write). Brain was already
+  reachable through the task tools by passing `section` or `categories`, so these add no reach;
+  they exist so an assistant's own memory is a tool it can find rather than an argument it has to
+  know to pass, and they refuse an id belonging to a task, so deleting a `memory` can never
+  quietly delete a note instead. `add_brain` defaults to the `memory` category.
+- Eight Projects tools, also matching the hosted connector: `search_projects`,
+  `search_project_tasks` and `get_project_task` (read), `add_project`, `add_project_task`,
+  `update_project_task`, `move_project_task` and `delete_project_task` (write). Projects is the
+  user's Kanban board, and `move_project_task` is the one to use for a progress update because it
+  keeps the card's id, where `update_project_task` is an append-only revision that returns a new
+  one.
+- Renaming a project, deleting a whole project and card sharing are deliberately not exposed. A
+  rename has no caller asking for it, deleting a project ceases every card on it at once, and
+  sharing hands a card to people outside the account.
+
+### Changed
+
+- The tool set is now thirty tools rather than seventeen. Both READMEs and the tool table are
+  updated to match.
+- **Breaking:** the task tools now cover Tasks only. Tasks and Brain have diverged into separate
+  sections, so `search_tasks`, `get_task`, `add_task`, `update_task` and `delete_task` no longer
+  reach a Brain entry, and the brain tools do not reach a task. An id addressed through the wrong
+  section's tool comes back as a 404 instead of quietly working, and a category from the wrong
+  section is a 400.
+- **Breaking:** `search_tasks` drops its `section` and `categories` arguments for a single
+  `category` (`note` or `list`), matching `search_brain`'s shape. Anything that previously called
+  it with `section: 'brain'` or a Brain category should call the matching brain tool instead.
+- `add_task` and `update_task` now accept only `note` and `list`. `update_task` and `update_brain`
+  carry the item's existing category forward when none is given, so an edit that omits the field
+  can no longer move an item between sections.
+
 ## [1.2.0] - 2026-09-06
 
 Plugin version at this release: 2.0.0 (unchanged).

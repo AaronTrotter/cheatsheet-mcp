@@ -205,28 +205,27 @@ server.registerTool(
 	}
 );
 
-// Tasks/Brain tools, mirroring the hosted connector's (functions/routes/db/mcpConnector.js in the
-// cheatsheet repo) so both surfaces expose the same set. The two pages have a Firestore collection
-// each (`tasks`, `brain`) behind one shared set of endpoints, and the `category` decides which an
-// item belongs to: note/list appear in Tasks, brief/rules/memory in Brain. That split is invisible
-// from here — every tool below still addresses an item by id or category, exactly as before.
-const TASK_CATEGORIES = ['note', 'list', 'brief', 'rules', 'memory'];
-const TASK_SECTIONS = ['tasks', 'brain'];
+// Tasks tools, mirroring the hosted connector's (functions/routes/db/mcpConnector.js in the
+// cheatsheet repo) so both surfaces expose the same set. Tasks and Brain have a Firestore
+// collection each (`tasks`, `brain`) behind one shared route file server-side, but they have
+// diverged into separate sections and this surface treats them that way: the tools below cover
+// Tasks only, the brain tools further down cover Brain only, and neither can reach the other's
+// items. An id from the wrong section comes back as a 404 rather than quietly working.
+const TASKS_CATEGORIES = ['note', 'list'];
 
 server.registerTool(
 	'search_tasks',
 	{
 		title: 'Search tasks',
-		description: 'Search the user\'s private Tasks and Brain entries (to-do lists, notes, and the guidance and memories kept separate from cheats). Returns id, title, category, text, expiresAtMs (null if permanent), and createdDateMs for each match, plus totalPages for pagination. Searches every category unless you narrow it.',
+		description: 'Search the user\'s private Tasks: their own notes and to-do lists, kept separate from cheats. Returns id, title, category, text, expiresAtMs (null if permanent), checkedLines and createdDateMs for each match, plus totalPages for pagination. This covers Tasks only. The user\'s Brain (the context, rules and memories written for you) is a separate section, reached with search_brain, and nothing here will find it.',
 		inputSchema: {
-			query: z.string().optional().describe('Search text matched against title/text/category; omit to list the most recently created items.'),
-			section: z.enum(TASK_SECTIONS).optional().describe('Restrict to one page\'s categories: \'tasks\' for note/list, \'brain\' for brief/rules/memory.'),
-			categories: z.string().optional().describe('Comma-separated category names to restrict to, e.g. \'memory\'. Takes precedence over section.'),
+			query: z.string().optional().describe('Search text matched against title/text/category; omit to list the most recently created tasks.'),
+			category: z.enum(TASKS_CATEGORIES).optional().describe('Restrict to one category: \'note\' for a plain note, \'list\' for a checklist. Omit to search both.'),
 			page: z.number().int().min(1).optional().describe('1-indexed page number (default 1).')
 		}
 	},
-	async ({ query, section, categories, page }) => {
-		return textResult(await callApi('GET', '/mcp/searchTasks', { query: { q: query, section, categories, page } }));
+	async ({ query, category, page }) => {
+		return textResult(await callApi('GET', '/mcp/searchTasks', { query: { q: query, category, page } }));
 	}
 );
 
@@ -234,7 +233,7 @@ server.registerTool(
 	'get_task',
 	{
 		title: 'Get task',
-		description: 'Fetch one task or Brain entry by id (as returned by search_tasks).',
+		description: 'Fetch one task by id (as returned by search_tasks). Fails with a 404 if the id belongs to a Brain entry rather than a task; use get_brain for those.',
 		inputSchema: {
 			id: z.string().describe('The task id.')
 		}
@@ -261,10 +260,10 @@ server.registerTool(
 	'add_task',
 	{
 		title: 'Add task',
-		description: 'Create a new Task or Brain entry. Requires a write-scoped API key. Always private, never appears in cheat search.',
+		description: 'Create a new Task for the user: something they want to do or remember. Requires a write-scoped API key. Always private, never appears in cheat search. To record something for yourself instead, use add_brain, which writes to the Brain section this tool cannot reach.',
 		inputSchema: {
 			title: z.string().max(40).describe('Title (max 40 chars).'),
-			category: z.enum(TASK_CATEGORIES).optional().describe('Category, which also decides where it appears for the user. The Tasks page shows \'note\' and \'list\'; the Brain page shows \'brief\' (context you should know), \'rules\' (constraints you must follow) and \'memory\' (things you record for yourself). Use \'memory\' when saving something you worked out; leave \'brief\' and \'rules\' to the user. Defaults to note.'),
+			category: z.enum(TASKS_CATEGORIES).optional().describe('\'note\' (default) is a plain note, \'list\' is a checklist whose lines the user can tick off.'),
 			text: z.string().describe('The body text.'),
 			duration: z.enum(['permanent', '1h', '1d', '1w']).optional().describe('Auto-expiry: permanent (default), 1h, 1d, or 1w. An expired item is automatically deleted (soft-ceased).')
 		}
@@ -278,11 +277,11 @@ server.registerTool(
 	'update_task',
 	{
 		title: 'Update task',
-		description: 'Revise a task or Brain entry you own. Requires a write-scoped API key. Append-only under the hood like update_cheat, but these have no visible revision history — this always returns the one current item.',
+		description: 'Revise a task you own. Requires a write-scoped API key. Append-only under the hood like update_cheat, but Tasks have no visible revision history, so this returns the one current task. Fails with a 404 if the id belongs to a Brain entry; use update_brain for those.',
 		inputSchema: {
-			id: z.string().describe('Id of the item to revise.'),
+			id: z.string().describe('Id of the task to revise.'),
 			title: z.string().max(40).describe('New title (max 40 chars).'),
-			category: z.enum(TASK_CATEGORIES).optional().describe('New category: note or list (Tasks page), or brief, rules or memory (Brain page). Defaults to note.'),
+			category: z.enum(TASKS_CATEGORIES).optional().describe('New category: \'note\' or \'list\'. Omit to keep the task as it is.'),
 			text: z.string().describe('New body text.'),
 			duration: z.enum(['permanent', '1h', '1d', '1w']).optional().describe('New auto-expiry: permanent (default), 1h, 1d, or 1w.')
 		}
@@ -296,13 +295,99 @@ server.registerTool(
 	'delete_task',
 	{
 		title: 'Delete task',
-		description: 'Delete a task or Brain entry you own. Requires a write-scoped API key. Not a hard delete — same soft-cease as delete_cheat. Fails with a 403 if you don\'t own it.',
+		description: 'Delete a task you own. Requires a write-scoped API key. Not a hard delete, the same soft-cease as delete_cheat. Fails with a 403 if you don\'t own it, and a 404 if the id belongs to a Brain entry; use delete_brain for those.',
 		inputSchema: {
-			id: z.string().describe('Id of the item to delete.')
+			id: z.string().describe('Id of the task to delete.')
 		}
 	},
 	async ({ id }) => {
 		return textResult(await callApi('POST', '/mcp/deleteTask', { body: { id } }));
+	}
+);
+
+// Brain tools: the same five task operations again, scoped to the three AI-facing categories.
+// Brain is a separate section from Tasks, not a filtered view of it: the task tools above cannot
+// reach anything here, and these cannot reach anything there. The server refuses an id from the
+// wrong section either way, so deleting a 'memory' can never quietly cease somebody's shopping
+// list.
+const BRAIN_CATEGORIES = ['brief', 'rules', 'memory'];
+
+server.registerTool(
+	'search_brain',
+	{
+		title: 'Search brain',
+		description: 'Search the user\'s Brain: \'brief\' entries are orienting context they wrote for you, \'rules\' are hard constraints they expect you to follow, and \'memory\' is what you have recorded for yourself in past sessions. Search this before assuming you know how the user works, and before recording something you may already have written down. Returns id, title, category, text, expiresAtMs (null if permanent) and createdDateMs per entry, plus totalPages. Tasks (the user\'s own notes and to-do lists) are a separate section, reached with search_tasks.',
+		inputSchema: {
+			query: z.string().optional().describe('Search text matched against title/text/category; omit to list the most recently created entries.'),
+			category: z.enum(BRAIN_CATEGORIES).optional().describe('Restrict to one category. Omit to search all three.'),
+			page: z.number().int().min(1).optional().describe('1-indexed page number (default 1).')
+		}
+	},
+	async ({ query, category, page }) => {
+		return textResult(await callApi('GET', '/mcp/searchBrain', { query: { q: query, category, page } }));
+	}
+);
+
+server.registerTool(
+	'get_brain',
+	{
+		title: 'Get brain entry',
+		description: 'Fetch one Brain entry by id (as returned by search_brain). Fails with a 404 if the id belongs to a task rather than a Brain entry.',
+		inputSchema: {
+			id: z.string().describe('The Brain entry id.')
+		}
+	},
+	async ({ id }) => {
+		return textResult(await callApi('GET', '/mcp/getBrain', { query: { id } }));
+	}
+);
+
+server.registerTool(
+	'add_brain',
+	{
+		title: 'Add brain entry',
+		description: 'Record something in the user\'s Brain. Requires a write-scoped API key. Use this to save what you have worked out and want to remember next session, which is what the default \'memory\' category is for. \'brief\' and \'rules\' are the user\'s own guidance to you, so write those two only when the user has actually asked you to. Search first: an entry that repeats one already there is worse than no entry.',
+		inputSchema: {
+			title: z.string().max(40).describe('Short title (max 40 chars).'),
+			category: z.enum(BRAIN_CATEGORIES).optional().describe('\'memory\' (default) is what you record for yourself, \'brief\' is orienting context, \'rules\' are hard constraints. Defaults to memory.'),
+			text: z.string().describe('The entry body text.'),
+			duration: z.enum(['permanent', '1h', '1d', '1w']).optional().describe('Auto-expiry: permanent (default), 1h, 1d, or 1w. An expired entry is automatically deleted (soft-ceased). Use a duration for something only true for now.')
+		}
+	},
+	async ({ title, category, text, duration }) => {
+		return textResult(await callApi('POST', '/mcp/addBrain', { body: { title, category, text, duration } }));
+	}
+);
+
+server.registerTool(
+	'update_brain',
+	{
+		title: 'Update brain entry',
+		description: 'Revise a Brain entry. Requires a write-scoped API key. Append-only under the hood like update_cheat, but Brain has no visible revision history, so this returns the one current entry. Prefer revising an entry that has gone out of date over adding a second one next to it. Editing a \'brief\' or \'rules\' entry rewrites the user\'s own guidance, so leave those alone unless asked.',
+		inputSchema: {
+			id: z.string().describe('Id of the entry to revise.'),
+			title: z.string().max(40).describe('New title (max 40 chars).'),
+			category: z.enum(BRAIN_CATEGORIES).optional().describe('New category. Omit to keep the entry where it is.'),
+			text: z.string().describe('New body text.'),
+			duration: z.enum(['permanent', '1h', '1d', '1w']).optional().describe('New auto-expiry: permanent (default), 1h, 1d, or 1w.')
+		}
+	},
+	async ({ id, title, category, text, duration }) => {
+		return textResult(await callApi('POST', '/mcp/updateBrain', { body: { id, title, category, text, duration } }));
+	}
+);
+
+server.registerTool(
+	'delete_brain',
+	{
+		title: 'Delete brain entry',
+		description: 'Delete a Brain entry. Requires a write-scoped API key. Not a hard delete, the same soft-cease as delete_cheat. Deleting a \'brief\' or \'rules\' entry throws away guidance the user wrote for you, so only do that when they have asked for that specific entry to go.',
+		inputSchema: {
+			id: z.string().describe('Id of the entry to delete.')
+		}
+	},
+	async ({ id }) => {
+		return textResult(await callApi('POST', '/mcp/deleteBrain', { body: { id } }));
 	}
 );
 
@@ -399,6 +484,130 @@ server.registerTool(
 	},
 	async ({ id }) => {
 		return textResult(await callApi('POST', '/mcp/voidPenny', { body: { id } }));
+	}
+);
+
+// Projects: the user's Kanban board. Two collections behind it, so two sets of tools — the
+// projects themselves, then the cards on them. Renaming a project, sharing a card and deleting a
+// whole project are deliberately not exposed on either surface; see the hosted connector for why.
+const PROJECT_TASK_STATUSES = ['open', 'in-progress', 'in-review'];
+
+server.registerTool(
+	'search_projects',
+	{
+		title: 'Search projects',
+		description: 'List the user\'s projects, which are the boards their cards are grouped onto. Returns id, name, createdDateMs, memberCount and role for each. role is \'owner\' for the user\'s own boards, or \'editor\'/\'viewer\' for a board somebody else shared with them: a \'viewer\' board is read-only, so the write tools below will refuse it. Call this first when you need a projectId for any of the card tools below.',
+		inputSchema: {}
+	},
+	async () => {
+		return textResult(await callApi('GET', '/mcp/searchProjects'));
+	}
+);
+
+server.registerTool(
+	'add_project',
+	{
+		title: 'Add project',
+		description: 'Create a new project (a board to put cards on). Requires a write-scoped API key. Check search_projects first: a project is a long-lived grouping, so a near-duplicate of one that already exists splits the user\'s board in two.',
+		inputSchema: {
+			name: z.string().max(30).describe('Project name (max 30 chars).')
+		}
+	},
+	async ({ name }) => {
+		return textResult(await callApi('POST', '/mcp/addProject', { body: { name } }));
+	}
+);
+
+server.registerTool(
+	'search_project_tasks',
+	{
+		title: 'Search project cards',
+		description: 'List the cards on the user\'s board, across their own projects and any shared with them. Returns id, title, projectID, status, text, highlights, links and createdDateMs for each. status is which column the card sits in: \'open\', \'in-progress\' or \'in-review\'. There is no done status — a finished card is deleted and leaves the board. Returns the whole board at once rather than a page of it, so narrow it with projectId or query when you only want part.',
+		inputSchema: {
+			query: z.string().optional().describe('Search text matched against title/text; omit for every card.'),
+			projectId: z.string().optional().describe('Restrict to one project\'s cards (id from search_projects). Omit for every project\'s.')
+		}
+	},
+	async ({ query, projectId }) => {
+		return textResult(await callApi('GET', '/mcp/searchProjectTasks', { query: { q: query, projectId } }));
+	}
+);
+
+server.registerTool(
+	'get_project_task',
+	{
+		title: 'Get project card',
+		description: 'Fetch one card by id (as returned by search_project_tasks).',
+		inputSchema: {
+			id: z.string().describe('The card id.')
+		}
+	},
+	async ({ id }) => {
+		return textResult(await callApi('GET', '/mcp/getProjectTask', { query: { id } }));
+	}
+);
+
+server.registerTool(
+	'add_project_task',
+	{
+		title: 'Add project card',
+		description: 'Add a card to one of the user\'s projects. Requires a write-scoped API key, and a project the user owns or has editor access to. The card lands in whichever column you give it, defaulting to \'open\'.',
+		inputSchema: {
+			title: z.string().max(40).describe('Card title (max 40 chars).'),
+			projectId: z.string().describe('Id of the project to add it to, from search_projects.'),
+			text: z.string().describe('The card body text.'),
+			status: z.enum(PROJECT_TASK_STATUSES).optional().describe('Which column it starts in (default \'open\').')
+		}
+	},
+	async ({ title, projectId, text, status }) => {
+		return textResult(await callApi('POST', '/mcp/addProjectTask', { body: { title, projectID: projectId, text, status } }));
+	}
+);
+
+server.registerTool(
+	'update_project_task',
+	{
+		title: 'Update project card',
+		description: 'Revise a card on a board the user can write to, which on a shared board includes cards other people added. Requires a write-scoped API key. Append-only under the hood like update_cheat, so this returns a new id and the old one stops resolving. Only for changing a card\'s content: to move it between columns use move_project_task, which keeps the id.',
+		inputSchema: {
+			id: z.string().describe('Id of the card to revise.'),
+			title: z.string().max(40).describe('New title (max 40 chars).'),
+			projectId: z.string().describe('Id of the project the card belongs to. Pass a different one to move the card to another board.'),
+			text: z.string().describe('New card body text.'),
+			status: z.enum(PROJECT_TASK_STATUSES).optional().describe('New column. Omit to leave the card where it is.')
+		}
+	},
+	async ({ id, title, projectId, text, status }) => {
+		return textResult(await callApi('POST', '/mcp/updateProjectTask', { body: { id, title, projectID: projectId, text, status } }));
+	}
+);
+
+server.registerTool(
+	'move_project_task',
+	{
+		title: 'Move project card',
+		description: 'Move a card to another column. Requires a write-scoped API key. This is the tool for progress updates: it keeps the card\'s id, where update_project_task would mint a new one. There is no done column, so use delete_project_task when a card is finished.',
+		inputSchema: {
+			id: z.string().describe('Id of the card to move.'),
+			status: z.enum(PROJECT_TASK_STATUSES).describe('The column to move it to.')
+		}
+	},
+	async ({ id, status }) => {
+		return textResult(await callApi('POST', '/mcp/moveProjectTask', { body: { id, status } }));
+	}
+);
+
+server.registerTool(
+	'delete_project_task',
+	{
+		title: 'Delete project card',
+		description: 'Delete a card on a board the user can write to, which is also how a finished card leaves the board. Requires a write-scoped API key. Not a hard delete, the same soft-cease as delete_cheat, but the card does disappear from the board for everybody on it, so only do it when the user has said that card is done or unwanted.',
+		inputSchema: {
+			id: z.string().describe('Id of the card to delete.')
+		}
+	},
+	async ({ id }) => {
+		return textResult(await callApi('POST', '/mcp/deleteProjectTask', { body: { id } }));
 	}
 );
 

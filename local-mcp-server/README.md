@@ -6,12 +6,15 @@ modify the tool set or run its own variant. This is one path under Option B (run
 server); see the [root README](../README.md) for the full menu, including Option A for claude.ai,
 Desktop, and mobile, which needs no local install at all.
 
-It exposes all seventeen `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
-`get_cheat`, `get_revisions`, `add_cheat`, `update_cheat`, `delete_cheat`), Tasks and Brain
-(`search_tasks`, `get_task`, `add_task`, `update_task`, `delete_task`), Pennies (`search_pennies`,
-`get_penny_summary`, `add_penny`, `fill_penny`, `void_penny`) and `get_guides` — so Claude Code can
-browse or update your cheats, tasks and investment log without an API key ever being typed into a
-chat.
+It exposes all thirty `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
+`get_cheat`, `get_revisions`, `add_cheat`, `update_cheat`, `delete_cheat`), Tasks
+(`search_tasks`, `get_task`, `add_task`, `update_task`, `delete_task`), Brain (`search_brain`,
+`get_brain`, `add_brain`, `update_brain`, `delete_brain`), Pennies (`search_pennies`,
+`get_penny_summary`, `add_penny`, `fill_penny`, `void_penny`), Projects (`search_projects`,
+`add_project`, `search_project_tasks`, `get_project_task`, `add_project_task`,
+`update_project_task`, `move_project_task`, `delete_project_task`) and `get_guides` — so Claude
+Code can browse or update your cheats, tasks, board and investment log without an API key ever
+being typed into a chat.
 That's the same tool set the hosted MCP Connector, the Claude Code plugin, and the MCP proxy
 expose, so switching between them doesn't change what an agent can do.
 
@@ -96,20 +99,48 @@ above is what *other* projects should follow when pointing at this script.
 | `add_task` | `POST /mcp/addTask` | write |
 | `update_task` | `POST /mcp/updateTask` | write |
 | `delete_task` | `POST /mcp/deleteTask` | write |
+| `search_brain` | `GET /mcp/searchBrain` | read |
+| `get_brain` | `GET /mcp/getBrain` | read |
+| `add_brain` | `POST /mcp/addBrain` | write |
+| `update_brain` | `POST /mcp/updateBrain` | write |
+| `delete_brain` | `POST /mcp/deleteBrain` | write |
 | `search_pennies` | `GET /mcp/searchPennies` | read |
 | `get_penny_summary` | `GET /mcp/getPennySummary` | read |
 | `add_penny` | `POST /mcp/addPenny` | write |
 | `fill_penny` | `POST /mcp/fillPenny` | write |
 | `void_penny` | `POST /mcp/voidPenny` | write |
+| `search_projects` | `GET /mcp/searchProjects` | read |
+| `add_project` | `POST /mcp/addProject` | write |
+| `search_project_tasks` | `GET /mcp/searchProjectTasks` | read |
+| `get_project_task` | `GET /mcp/getProjectTask` | read |
+| `add_project_task` | `POST /mcp/addProjectTask` | write |
+| `update_project_task` | `POST /mcp/updateProjectTask` | write |
+| `move_project_task` | `POST /mcp/moveProjectTask` | write |
+| `delete_project_task` | `POST /mcp/deleteProjectTask` | write |
 
-The task tools cover Brain as well as Tasks. Server-side those are two collections behind one
-shared set of endpoints, and an item's `category` decides which it belongs to (`note`/`list` on the
-Tasks page, `brief`/`rules`/`memory` on the Brain page); each page carries its own Free-tier cap of
-5 items. None of that is visible through these tools, which still address an item by id or
-category. Narrow a search to one page with `search_tasks`' `section` argument. `get_guides` returns the user's
+The task tools and the brain tools cover two separate sections, not one list with a filter. Tasks
+holds the user's own notes and checklists (`note`, `list`); Brain holds what an assistant works
+from (`brief` for context, `rules` for constraints, `memory` for what it records for itself).
+Server-side these are two Firestore collections behind one shared route file, and each carries its
+own Free-tier cap of 5 items, but on this surface they are simply separate: the task tools reach
+nothing in Brain, the brain tools reach nothing in Tasks, and an id addressed through the wrong
+section's tool comes back as a 404 rather than quietly working. So deleting a `memory` can never
+delete a shopping list instead, and an assistant tidying up notes can never touch the rules the
+user wrote for it. `add_brain` defaults to the `memory` category, which is the one an assistant
+writes for itself: `brief` and `rules` are the user's own guidance, so write those only when
+asked. `get_guides` returns the user's
 `brief` and `rules` entries as one formatted block, the same text the hosted connector sends as its
 `instructions` on connect; this server has no equivalent hook, so call it explicitly when you want
 that context.
+
+The project tools cover the user's Kanban board: `projects` are the boards, and each card belongs
+to one and carries the `status` deciding its column (`open`, `in-progress`, `in-review`). There is
+no done column, so `delete_project_task` is how a finished card leaves the board. Use
+`move_project_task` for a progress update, since it keeps the card's id, where `update_project_task`
+is an append-only revision that returns a new one. Renaming a project, deleting a whole project and
+card sharing are deliberately not exposed here: the first has no caller asking for it, the second
+would cease every card on the board at once, and the third hands a card to people outside the
+account, which belongs on the page where the allow-list is visible.
 
 The Pennies tools cover the user's own log of investment orders (crypto, stocks, ETFs, bonds,
 commodities and CFDs) and the portfolio derived from it. `search_pennies` returns the raw orders;
