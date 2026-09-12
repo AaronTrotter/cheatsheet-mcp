@@ -6,14 +6,15 @@ modify the tool set or run its own variant. This is one path under Option B (run
 server); see the [root README](../README.md) for the full menu, including Option A for claude.ai,
 Desktop, and mobile, which needs no local install at all.
 
-It exposes all thirty-five `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
+It exposes all thirty-nine `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
 `get_cheat`, `get_revisions`, `add_cheat`, `update_cheat`, `delete_cheat`), Tasks
 (`search_tasks`, `get_task`, `add_task`, `update_task`, `delete_task`), Brain (`search_brain`,
 `get_brain`, `add_brain`, `update_brain`, `delete_brain`), Pennies (`search_pennies`,
 `get_penny_summary`, `add_penny`, `fill_penny`, `void_penny`), Projects (`search_projects`,
 `add_project`, `search_project_tasks`, `get_project_task`, `add_project_task`,
-`update_project_task`, `move_project_task`, `delete_project_task`), Dues (`search_dues`,
-`get_due`, `get_dues_summary`, `add_due`, `mark_due_paid`) and `get_guides` — so Claude
+`update_project_task`, `move_project_task`, `delete_project_task`), Dues (`search_due_payers`,
+`search_due_services`, `add_due_payer`, `add_due_service`, `search_dues`, `get_due`,
+`get_dues_summary`, `add_due`, `mark_due_paid`) and `get_guides` — so Claude
 Code can browse or update your cheats, tasks, board, investment log and what you are owed without
 an API key ever being typed into a chat.
 That's the same tool set the hosted MCP Connector, the Claude Code plugin, and the MCP proxy
@@ -118,6 +119,10 @@ above is what *other* projects should follow when pointing at this script.
 | `update_project_task` | `POST /mcp/updateProjectTask` | write |
 | `move_project_task` | `POST /mcp/moveProjectTask` | write |
 | `delete_project_task` | `POST /mcp/deleteProjectTask` | write |
+| `search_due_payers` | `GET /mcp/searchDuePayers` | read |
+| `search_due_services` | `GET /mcp/searchDueServices` | read |
+| `add_due_payer` | `POST /mcp/addDuePayer` | write |
+| `add_due_service` | `POST /mcp/addDueService` | write |
 | `search_dues` | `GET /mcp/searchDues` | read |
 | `get_due` | `GET /mcp/getDue` | read |
 | `get_dues_summary` | `GET /mcp/getDuesSummary` | read |
@@ -164,12 +169,21 @@ returns the raw ledger, unpaid before paid and oldest first within each, with `o
 stale. `get_dues_summary` returns the balances and a per-payer breakdown carrying each payer's
 oldest unpaid date and whether they are frozen, which is what tells you who is worth chasing.
 
-Three things the browser can do that these tools deliberately cannot. Freezing a payer stops
-billing a real client, and sending a payment reminder puts an email in front of them, so both stay
-behind a button a person presses. Editing a due is the third, and the reason is less obvious: each
-new due is priced at whatever the previous one for that service was priced at, so editing a raised
-but unpaid due reprices every future one. `mark_due_paid` is the one tool here with a side effect
-worth knowing about, since on a service that recurs only after payment it also raises the next one
+`add_due_payer` and `add_due_service` are how a client sets the section up rather than only
+reading it. `add_due_service` is the most consequential tool here, because it is what makes charges
+appear on their own later: a `firstDueDate` in the past raises every charge owed since then
+immediately, and says how many as `raised`, so a monthly service back-dated a year creates twelve
+unpaid charges on the spot. That is the intended way to record something already being billed, but
+it is worth saying out loud when you do it. Check `search_due_payers` and `search_due_services`
+first, since nothing stops two payers or two services having the same name.
+
+Things the browser can do that these tools deliberately cannot. Freezing a payer stops billing a
+real client, and sending a payment reminder puts an email in front of them, so both stay behind a
+button a person presses. Editing a due is a third, and the reason is less obvious: each new due is
+priced at whatever the previous one for that service was priced at, so editing a raised but unpaid
+due reprices every future one. Archiving and deleting are absent too, since deleting a payer
+cascades to every service and due under them. `mark_due_paid` is the one remaining tool with a side
+effect worth knowing about: on a service that recurs only after payment it also raises the next one
 straight away and returns its id as `rolledChildID`. These are financial records about somebody
 else, so record only what the user has actually stated, and never guess an amount or a date.
 
@@ -180,7 +194,7 @@ The same goes for a key limited to particular sections of the app (Cheats, Tasks
 Projects, Dues, chosen when the key is created on `/user`): calls outside its sections come back as a 403
 naming the section. Note the difference from the hosted MCP Connector here. The connector knows the
 key's sections at connect time and only offers the tools that key can use, so a narrow key gets a
-short tool list. This script registers all thirty-five tools whatever the key is, because nothing in the
+short tool list. This script registers all thirty-nine tools whatever the key is, because nothing in the
 API tells a key what it is scoped to — so with a narrowed key, some of the tools it advertises will
 answer 403. Prefer the hosted connector when you want the tool list to match the key.
 

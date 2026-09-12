@@ -611,13 +611,87 @@ server.registerTool(
 	}
 );
 
-// Dues: money other people owe the user. Mirrors the same five tools the hosted connector exposes
+// Dues: money other people owe the user. Mirrors the same nine tools the hosted connector exposes
 // (functions/routes/db/mcpConnector.js in the cheatsheet repo) — the two surfaces are meant to be
 // interchangeable, so a tool added to one belongs in the other in the same change.
 //
 // Freezing a payer, sending a payment reminder and editing a due are deliberately not exposed on
 // either surface. The first two act on a real client rather than on the user's own records, and
 // editing a raised-but-unpaid due is what reprices every future one; see the hosted connector.
+
+const DUE_CYCLES = ['monthly', 'quarterly', 'yearly', 'none'];
+const DUE_SCHEDULES = ['fixed', 'onPayment'];
+
+server.registerTool(
+	'search_due_payers',
+	{
+		title: 'Search due payers',
+		description: "List the people and companies who owe the user money, sorted by company then name. Returns each payer's id, name, company, email, currency, notes, whether they are frozen and why, and whether they are archived. Call this to turn a name into an id, or to check somebody is not already on the list before adding them again.",
+		inputSchema: {
+			q: z.string().optional().describe('Substring match over name and company, case-insensitive. Omit for everybody.'),
+			includeArchived: z.boolean().optional().describe('Include archived payers, who are filed away but still owed money. Default false.')
+		}
+	},
+	async ({ q, includeArchived }) => {
+		return textResult(await callApi('GET', '/mcp/searchDuePayers', { query: { q, includeArchived: includeArchived ? '1' : undefined } }));
+	}
+);
+
+server.registerTool(
+	'search_due_services',
+	{
+		title: 'Search due services',
+		description: "List the recurring things the user bills their payers for, soonest next date first. Returns each service's id, payer, label, price and VAT rate, cycle, schedule, the next date it will bill on, how many charges it currently has unpaid and the oldest of those, plus frozen and archived state. Check here before adding a service, so an existing one is not duplicated. A service whose schedule is 'onPayment' will not bill again until its open charge is paid, whatever its next date says.",
+		inputSchema: {
+			payerId: z.string().optional().describe('Restrict to one payer, by id.'),
+			q: z.string().optional().describe('Substring match over the service label, case-insensitive.'),
+			includeArchived: z.boolean().optional().describe('Include archived services. Default false.')
+		}
+	},
+	async ({ payerId, q, includeArchived }) => {
+		return textResult(await callApi('GET', '/mcp/searchDueServices', { query: { payerId, q, includeArchived: includeArchived ? '1' : undefined } }));
+	}
+);
+
+server.registerTool(
+	'add_due_payer',
+	{
+		title: 'Add due payer',
+		description: "Add a person or company who owes the user money. Requires a write-scoped API key. This records a REAL third party's name and email address, so add only somebody the user has actually named, and never invent contact details. Check search_due_payers first: nothing stops two payers having the same name, and money recorded against the wrong one is worse than money not recorded. The email is what a payment reminder would be sent to, and reminders are only ever sent by the user pressing a button, never by a tool.",
+		inputSchema: {
+			name: z.string().max(60).describe("Who owes the money, e.g. 'Bob Smith' (max 60 chars)."),
+			company: z.string().max(60).optional().describe('Their company, if the work is billed through one (max 60 chars). Also used to group the list.'),
+			email: z.string().max(120).optional().describe('Where a payment reminder would go. Leave it out if the user has not given you one: a payer without an email simply cannot be sent a reminder.'),
+			currency: z.string().optional().describe("ISO 4217 code their charges default to, e.g. 'GBP'. Defaults to the user's own base currency when omitted."),
+			notes: z.string().max(200).optional().describe("A note for the user's own reference, never emailed (max 200 chars).")
+		}
+	},
+	async (args) => {
+		return textResult(await callApi('POST', '/mcp/addDuePayer', { body: args }));
+	}
+);
+
+server.registerTool(
+	'add_due_service',
+	{
+		title: 'Add due service',
+		description: 'Set up a recurring thing a payer is billed for: their hosting, one domain, one parking bay. Requires a write-scoped API key. This is the tool that makes charges appear by itself later, so set it up only from what the user has actually told you, and never guess a price or a start date. IMPORTANT: if firstDueDate is in the past, the charges for every period since then are raised immediately, and the response says how many as `raised` — so a monthly service back-dated a year creates twelve unpaid charges on the spot. That is the intended way to record something already being billed, but say so when you do it.',
+		inputSchema: {
+			payerName: z.string().optional().describe('Who is billed, by name or company, matched exactly and case-insensitively. Use this or payerId. An ambiguous name is an error rather than a guess.'),
+			payerId: z.string().optional().describe('Who is billed, by id. Takes precedence over payerName.'),
+			label: z.string().max(60).describe("What it is, e.g. 'Website hosting' or 'example.com domain' (max 60 chars). Becomes the description of the first charge."),
+			amount: z.number().nonnegative().describe('What it costs each time, BEFORE VAT. Only ever the seed price: each later charge copies the one before it, so changing the price later means editing an unpaid charge in the browser, not this.'),
+			taxRate: z.number().min(0).max(100).optional().describe('VAT percentage on top of `amount`. Omit entirely when there is no VAT: omitted and 0 are different, and only one of them prints a VAT line.'),
+			currency: z.string().optional().describe("ISO 4217 code. Defaults to the payer's own currency."),
+			cycle: z.enum(DUE_CYCLES).describe("How often it repeats. 'none' is a one-off that never comes round again."),
+			schedule: z.enum(DUE_SCHEDULES).optional().describe("'fixed' (default) bills on its date whether or not the last one was paid, so arrears stack up; 'onPayment' raises the next one only once the current one is marked paid, which suits something you stop providing when unpaid. Ignored for a 'none' cycle."),
+			firstDueDate: z.number().describe('When the first charge falls due, as a millisecond timestamp, normalized to UTC midnight. Its day of the month becomes the anchor the cycle bills on. A date in the past raises everything owed since then straight away.')
+		}
+	},
+	async (args) => {
+		return textResult(await callApi('POST', '/mcp/addDueService', { body: { ...args, nextDueDate: args.firstDueDate } }));
+	}
+);
 
 server.registerTool(
 	'search_dues',

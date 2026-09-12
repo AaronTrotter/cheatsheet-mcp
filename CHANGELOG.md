@@ -14,6 +14,12 @@ not track the repository version. Each entry below records where the plugin stoo
 
 ### Added
 
+- Four more Dues tools in `local-mcp-server/`, matching the hosted MCP Connector:
+  `search_due_payers`, `search_due_services`, `add_due_payer` and `add_due_service`. The first
+  five tools could read what was owed and record a one-off charge, but not set up the payer or the
+  recurring service a charge hangs off, so the section could not actually be used from a client
+  without opening the browser first. Note that `add_due_service` raises every charge owed since
+  its `firstDueDate` immediately when that date is in the past, reporting the count as `raised`.
 - Five Dues tools in `local-mcp-server/`, mirroring the five the hosted MCP Connector gained in
   the same change: `search_dues`, `get_due`, `get_dues_summary`, `add_due` and `mark_due_paid`.
   Dues is a new private section on Cheatsheet recording money other people owe the user, with a
