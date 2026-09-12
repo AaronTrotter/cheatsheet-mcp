@@ -2,8 +2,8 @@
 
 Client-side MCP tooling for [cheatsheet](https://cheats.aarontrotter.com), a personal cheat-sheet
 web app. Lets an MCP client (Claude Code, Claude Desktop, the Claude mobile app, or any other
-MCP-compatible agent) search, read, and manage your cheats and Tasks, without an API key ever
-being typed into chat.
+MCP-compatible agent) search, read, and manage your cheats, Tasks, Brain, Pennies, Projects and
+Dues, without an API key ever being typed into chat.
 
 The hosted server itself (`POST /mcp`) lives in the app's own repo, at
 [`functions/routes/db/mcpConnector.js`](https://github.com/AaronTrotter/cheatsheet). Everything in
@@ -67,7 +67,7 @@ or shell environment variable. Pick one:
 - **[`local-mcp-server/`](local-mcp-server/README.md)** — a standalone stdio server that wraps the
   cheatsheet's REST API directly instead of forwarding to the hosted connector, kept as a
   customizable reference for a project that wants to modify the tool set or run its own variant.
-  Covers the same 30 tools as the hosted connector — see its own README.
+  Covers the same 35 tools as the hosted connector — see its own README.
 
 All three keep the key on your own machine and don't reach the mobile app, which has no local
 process to run one in.

@@ -6,15 +6,16 @@ modify the tool set or run its own variant. This is one path under Option B (run
 server); see the [root README](../README.md) for the full menu, including Option A for claude.ai,
 Desktop, and mobile, which needs no local install at all.
 
-It exposes all thirty `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
+It exposes all thirty-five `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
 `get_cheat`, `get_revisions`, `add_cheat`, `update_cheat`, `delete_cheat`), Tasks
 (`search_tasks`, `get_task`, `add_task`, `update_task`, `delete_task`), Brain (`search_brain`,
 `get_brain`, `add_brain`, `update_brain`, `delete_brain`), Pennies (`search_pennies`,
 `get_penny_summary`, `add_penny`, `fill_penny`, `void_penny`), Projects (`search_projects`,
 `add_project`, `search_project_tasks`, `get_project_task`, `add_project_task`,
-`update_project_task`, `move_project_task`, `delete_project_task`) and `get_guides` — so Claude
-Code can browse or update your cheats, tasks, board and investment log without an API key ever
-being typed into a chat.
+`update_project_task`, `move_project_task`, `delete_project_task`), Dues (`search_dues`,
+`get_due`, `get_dues_summary`, `add_due`, `mark_due_paid`) and `get_guides` — so Claude
+Code can browse or update your cheats, tasks, board, investment log and what you are owed without
+an API key ever being typed into a chat.
 That's the same tool set the hosted MCP Connector, the Claude Code plugin, and the MCP proxy
 expose, so switching between them doesn't change what an agent can do.
 
@@ -117,6 +118,11 @@ above is what *other* projects should follow when pointing at this script.
 | `update_project_task` | `POST /mcp/updateProjectTask` | write |
 | `move_project_task` | `POST /mcp/moveProjectTask` | write |
 | `delete_project_task` | `POST /mcp/deleteProjectTask` | write |
+| `search_dues` | `GET /mcp/searchDues` | read |
+| `get_due` | `GET /mcp/getDue` | read |
+| `get_dues_summary` | `GET /mcp/getDuesSummary` | read |
+| `add_due` | `POST /mcp/addDue` | write |
+| `mark_due_paid` | `POST /mcp/markDuePaid` | write |
 
 The task tools and the brain tools cover two separate sections, not one list with a filter. Tasks
 holds the user's own notes and checklists (`note`, `list`); Brain holds what an assistant works
@@ -151,8 +157,32 @@ and `void_penny` is the only way one is removed. These are financial records, so
 user has actually stated and never guess a price, quantity or date. A read-only key can read this
 section but cannot change it, which is how you keep an integration out of it entirely.
 
+The Dues tools cover what other people owe the user: a payer is a client or a tenant, a service is
+one recurring thing they are billed for, and a due is one amount owed on one date. `search_dues`
+returns the raw ledger, unpaid before paid and oldest first within each, with `overdue` and
+`daysOverdue` worked out from the date at the moment you ask rather than stored, so they are never
+stale. `get_dues_summary` returns the balances and a per-payer breakdown carrying each payer's
+oldest unpaid date and whether they are frozen, which is what tells you who is worth chasing.
+
+Three things the browser can do that these tools deliberately cannot. Freezing a payer stops
+billing a real client, and sending a payment reminder puts an email in front of them, so both stay
+behind a button a person presses. Editing a due is the third, and the reason is less obvious: each
+new due is priced at whatever the previous one for that service was priced at, so editing a raised
+but unpaid due reprices every future one. `mark_due_paid` is the one tool here with a side effect
+worth knowing about, since on a service that recurs only after payment it also raises the next one
+straight away and returns its id as `rolledChildID`. These are financial records about somebody
+else, so record only what the user has actually stated, and never guess an amount or a date.
+
 A key without the required scope gets a normal 401 from the API — the server has no scope logic
 of its own, it just forwards the key and reports back whatever the API says.
+
+The same goes for a key limited to particular sections of the app (Cheats, Tasks, Brain, Pennies,
+Projects, Dues, chosen when the key is created on `/user`): calls outside its sections come back as a 403
+naming the section. Note the difference from the hosted MCP Connector here. The connector knows the
+key's sections at connect time and only offers the tools that key can use, so a narrow key gets a
+short tool list. This script registers all thirty-five tools whatever the key is, because nothing in the
+API tells a key what it is scoped to — so with a narrowed key, some of the tools it advertises will
+answer 403. Prefer the hosted connector when you want the tool list to match the key.
 
 Every cheat tool except `delete_cheat` adds a `url` field (not part of the underlying API response)
 pointing at the cheat's page — per result for `search_cheats`, per revision for `get_revisions`,

@@ -611,6 +611,94 @@ server.registerTool(
 	}
 );
 
+// Dues: money other people owe the user. Mirrors the same five tools the hosted connector exposes
+// (functions/routes/db/mcpConnector.js in the cheatsheet repo) — the two surfaces are meant to be
+// interchangeable, so a tool added to one belongs in the other in the same change.
+//
+// Freezing a payer, sending a payment reminder and editing a due are deliberately not exposed on
+// either surface. The first two act on a real client rather than on the user's own records, and
+// editing a raised-but-unpaid due is what reprices every future one; see the hosted connector.
+
+server.registerTool(
+	'search_dues',
+	{
+		title: 'Search dues',
+		description: "List what people currently owe the user, most pressing first: unpaid before paid, oldest first within each. Returns each due's id, payer, description, net and gross amount, VAT rate, currency, due date, status, and how many days late it is, plus totalPages for pagination and the payers available to filter on. `overdue` is worked out from the date at the moment you ask, so it is always current. Call get_dues_summary for balances rather than adding these up yourself.",
+		inputSchema: {
+			payerId: z.string().optional().describe('Restrict to one payer, by id. The payer list comes back on every response.'),
+			status: z.enum(['unpaid', 'paid', 'overdue']).optional().describe("'unpaid' is everything not yet settled; 'overdue' is the narrower slice of that which is past its due date; 'paid' is settled. Omit for everything."),
+			page: z.number().int().min(1).optional().describe('1-indexed page number (default 1).')
+		}
+	},
+	async ({ payerId, status, page }) => {
+		return textResult(await callApi('GET', '/mcp/searchDues', { query: { payerId, status, page } }));
+	}
+);
+
+server.registerTool(
+	'get_due',
+	{
+		title: 'Get due',
+		description: "Read one due in full by id, including the payer's name and email, which service raised it, the net/VAT/gross split, when it was paid and for how much, and when a reminder was last sent.",
+		inputSchema: {
+			id: z.string().describe("The due's id.")
+		}
+	},
+	async ({ id }) => {
+		return textResult(await callApi('GET', '/mcp/getDue', { query: { id } }));
+	}
+);
+
+server.registerTool(
+	'get_dues_summary',
+	{
+		title: 'Get dues summary',
+		description: "Balances rather than the raw list: what is outstanding, what is overdue, what falls due in the next 30 days, and what has been paid this year, plus a per-payer breakdown carrying each payer's oldest unpaid date, how many days late it is, and whether they are frozen. Money comes back per currency, and additionally converted into the user's base currency only when every due in that tally could be converted, so a null baseAmount means mixed currencies rather than zero.",
+		inputSchema: {
+			payerId: z.string().optional().describe('Restrict to one payer, by id. Omit for everybody.')
+		}
+	},
+	async ({ payerId }) => {
+		return textResult(await callApi('GET', '/mcp/getDuesSummary', { query: { payerId } }));
+	}
+);
+
+server.registerTool(
+	'add_due',
+	{
+		title: 'Add due',
+		description: 'Record a one-off amount somebody owes the user. Requires a write-scoped API key. This is a financial record the user keeps about a real client, so record only what the user has actually told you, and never guess an amount or a date. Recurring charges are set up as services in the browser and raise themselves; this is for one-offs and for catching up on something missed.',
+		inputSchema: {
+			payerName: z.string().optional().describe('Who owes it, by name or company, matched exactly and case-insensitively. Use this or payerId. An ambiguous name is an error rather than a guess.'),
+			payerId: z.string().optional().describe('Who owes it, by id. Takes precedence over payerName.'),
+			description: z.string().max(200).describe("What it is for, e.g. 'Website hosting 2027' (max 200 chars)."),
+			amount: z.number().nonnegative().describe('The amount owed BEFORE VAT.'),
+			taxRate: z.number().min(0).max(100).optional().describe('VAT percentage on top of `amount`. Omit entirely when there is no VAT: omitted and 0 are different, and only one of them prints a VAT line.'),
+			currency: z.string().optional().describe("ISO 4217 currency code, e.g. 'GBP'. Defaults to the payer's own currency."),
+			dueDate: z.number().describe('When it falls due, as a millisecond timestamp. Normalized to UTC midnight of that day.')
+		}
+	},
+	async (args) => {
+		return textResult(await callApi('POST', '/mcp/addDue', { body: args }));
+	}
+);
+
+server.registerTool(
+	'mark_due_paid',
+	{
+		title: 'Mark due paid',
+		description: "Record that a due has been settled. Requires a write-scoped API key. If it came from a service that recurs only after payment, this ALSO raises the next one straight away, dated one cycle on from this one's own due date and priced at whatever this one was priced at — the response says so as rolledChildID. That makes this more than a status change, so only do it when the user has told you the money actually arrived.",
+		inputSchema: {
+			id: z.string().describe("The due's id."),
+			paidDate: z.number().optional().describe('When it was paid, as a millisecond timestamp. Defaults to today.'),
+			paidAmount: z.number().optional().describe('What actually landed, if it differed from the gross amount owed. Defaults to the full gross.')
+		}
+	},
+	async ({ id, paidDate, paidAmount }) => {
+		return textResult(await callApi('POST', '/mcp/markDuePaid', { body: { id, paidDate, paidAmount } }));
+	}
+);
+
 async function main() {
 	const transport = new StdioServerTransport();
 	await server.connect(transport);

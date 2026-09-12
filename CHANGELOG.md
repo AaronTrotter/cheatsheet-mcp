@@ -12,6 +12,17 @@ not track the repository version. Each entry below records where the plugin stoo
 
 ## [Unreleased]
 
+### Added
+
+- Five Dues tools in `local-mcp-server/`, mirroring the five the hosted MCP Connector gained in
+  the same change: `search_dues`, `get_due`, `get_dues_summary`, `add_due` and `mark_due_paid`.
+  Dues is a new private section on Cheatsheet recording money other people owe the user, with a
+  payer, the recurring services they are billed for, and each amount owed. Freezing a payer,
+  sending a payment reminder and editing a due are deliberately absent from both surfaces: the
+  first two act on a real client, and the third reprices every future charge. Note that
+  `mark_due_paid` can raise the next charge as a side effect on a service set to recur only after
+  payment, returning it as `rolledChildID`.
+
 ### Changed
 
 - Projects tool descriptions in `local-mcp-server/` now cover shared boards, matching the hosted
@@ -56,6 +67,10 @@ Plugin version at this release: 2.0.0 (unchanged).
 - **Breaking:** `search_tasks` drops its `section` and `categories` arguments for a single
   `category` (`note` or `list`), matching `search_brain`'s shape. Anything that previously called
   it with `section: 'brain'` or a Brain category should call the matching brain tool instead.
+- API keys can now be limited to particular sections of the app on `/user`. This script is
+  unaffected in what it registers (all thirty tools, since nothing tells a key its own sections),
+  but a call outside a narrowed key's sections now returns 403. The hosted connector does narrow
+  its tool list to match the key, so prefer it when that matters.
 - `add_task` and `update_task` now accept only `note` and `list`. `update_task` and `update_brain`
   carry the item's existing category forward when none is given, so an edit that omits the field
   can no longer move an item between sections.
