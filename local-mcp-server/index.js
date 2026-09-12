@@ -662,6 +662,8 @@ server.registerTool(
 			name: z.string().max(60).describe("Who owes the money, e.g. 'Bob Smith' (max 60 chars)."),
 			company: z.string().max(60).optional().describe('Their company, if the work is billed through one (max 60 chars). Also used to group the list.'),
 			email: z.string().max(120).optional().describe('Where a payment reminder would go. Leave it out if the user has not given you one: a payer without an email simply cannot be sent a reminder.'),
+			paymentMethod: z.string().max(40).optional().describe("How the user wants THIS payer to pay them, as a label: 'PayPal', 'Monzo', 'Revolut', 'Bank transfer'. These are the user's OWN payment details, not the payer's, and they are quoted back in that payer's reminder email."),
+			paymentHandle: z.string().max(120).optional().describe("Where the money actually goes: the user's own PayPal address, Monzo or Revolut handle, or account reference. Recorded verbatim, so an @ or an underscore survives. Never invent one."),
 			currency: z.string().optional().describe("ISO 4217 code their charges default to, e.g. 'GBP'. Defaults to the user's own base currency when omitted."),
 			notes: z.string().max(200).optional().describe("A note for the user's own reference, never emailed (max 200 chars).")
 		}
