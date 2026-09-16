@@ -31,6 +31,12 @@ not track the repository version. Each entry below records where the plugin stoo
 
 ### Changed
 
+- `get_cheat` and `get_revisions` now return `ownStars` and `ownPoints` alongside `stars` and
+  `points`, and `get_revisions`' description says to rank by the former. Cheatsheet's `stars` and
+  `points` are cumulative down a cheat's revision lineage, because each revision inherits every
+  vote cast before it, so comparing two revisions by `points` mostly just rediscovers which one is
+  newer. The new fields are the votes cast on that revision alone, which is the comparison worth
+  making when deciding which version of a cheat to read. No tool was added, removed or reshaped.
 - Projects tool descriptions in `local-mcp-server/` now cover shared boards, matching the hosted
   MCP Connector. A project on Cheatsheet can be shared with other people by email invite, so
   `search_projects` returns boards shared with the user alongside their own, each carrying a

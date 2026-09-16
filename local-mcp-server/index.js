@@ -135,7 +135,7 @@ server.registerTool(
 	'get_revisions',
 	{
 		title: 'Get revision history',
-		description: 'List the full append-only revision history for a cheat\'s lineage. Any id belonging to it works, not just the original. Exactly one revision has ceased:false — that\'s the current version; the rest are prior edits kept for history.',
+		description: 'List the full append-only revision history for a cheat\'s lineage. Any id belonging to it works, not just the original. Exactly one revision has ceased:false — that\'s the current version; the rest are prior edits kept for history. Rank revisions by ownPoints (votes on that revision alone), not points, which is cumulative down the lineage and so mostly just reflects which revision is newest.',
 		inputSchema: {
 			id: z.string().describe('Id of any revision in the lineage.')
 		}
