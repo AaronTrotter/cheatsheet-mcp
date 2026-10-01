@@ -41,6 +41,11 @@ not track the repository version. Each entry below records where the plugin stoo
 
 ### Changed
 
+- The README now opens with the new Cheatsheet logo. It shows the on-white lockup in GitHub's
+  light theme and the on-dark one in its dark theme, both kept under `assets/`.
+- `add_task` and `update_task` descriptions in `local-mcp-server/` now use the hosted MCP
+  Connector's wording word for word ("Task title", "The task body text", "An expired task"). No
+  schema changed.
 - The tool set is now forty tools rather than thirty-nine. `search_pennies`' description now lists
   every field an order carries, including `orderKind`, `rewardQuantity` and `notes`.
 - `get_cheat` and `get_revisions` now return `ownStars` and `ownPoints` alongside `stars` and

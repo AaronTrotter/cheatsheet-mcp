@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/cheatsheet-lockup-ondark.svg">
+  <img alt="cheatsheet" src="assets/cheatsheet-lockup-onwhite.svg" width="340" height="56">
+</picture>
+
 # cheatsheet-mcp
 
 Client-side MCP tooling for [cheatsheet](https://cheats.aarontrotter.com), a personal cheat-sheet

@@ -261,12 +261,12 @@ server.registerTool(
 	'add_task',
 	{
 		title: 'Add task',
-		description: 'Create a new Task for the user: something they want to do or remember. Requires a write-scoped API key. Always private, never appears in cheat search. To record something for yourself instead, use add_brain, which writes to the Brain section this tool cannot reach.',
+		description: 'Create a new Task for the user: something they want to do or remember. Requires a write-scoped API key. Tasks are always private, have no type, and never appear in cheat search. To record something for yourself instead, use add_brain, which writes to the Brain section this tool cannot reach.',
 		inputSchema: {
-			title: z.string().max(40).describe('Title (max 40 chars).'),
+			title: z.string().max(40).describe('Task title (max 40 chars).'),
 			category: z.enum(TASKS_CATEGORIES).optional().describe('\'note\' (default) is a plain note, \'list\' is a checklist whose lines the user can tick off.'),
-			text: z.string().describe('The body text.'),
-			duration: z.enum(['permanent', '1h', '1d', '1w']).optional().describe('Auto-expiry: permanent (default), 1h, 1d, or 1w. An expired item is automatically deleted (soft-ceased).')
+			text: z.string().describe('The task body text.'),
+			duration: z.enum(['permanent', '1h', '1d', '1w']).optional().describe('Auto-expiry: permanent (default), 1h, 1d, or 1w. An expired task is automatically deleted (soft-ceased).')
 		}
 	},
 	async ({ title, category, text, duration }) => {
@@ -283,7 +283,7 @@ server.registerTool(
 			id: z.string().describe('Id of the task to revise.'),
 			title: z.string().max(40).describe('New title (max 40 chars).'),
 			category: z.enum(TASKS_CATEGORIES).optional().describe('New category: \'note\' or \'list\'. Omit to keep the task as it is.'),
-			text: z.string().describe('New body text.'),
+			text: z.string().describe('New task body text.'),
 			duration: z.enum(['permanent', '1h', '1d', '1w']).optional().describe('New auto-expiry: permanent (default), 1h, 1d, or 1w.')
 		}
 	},
