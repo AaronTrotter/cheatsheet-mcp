@@ -205,6 +205,6 @@ answer 403. Prefer the hosted connector when you want the tool list to match the
 
 Every cheat tool except `delete_cheat` adds a `url` field (not part of the underlying API response)
 pointing at the cheat's page — per result for `search_cheats`, per revision for `get_revisions`,
-top-level for `get_cheat`/`add_cheat`/`update_cheat` — `<CHEATSHEET_SITE_URL>/?code=<id>`,
+top-level for `get_cheat`/`add_cheat`/`update_cheat` — `<CHEATSHEET_SITE_URL>/cheats?code=<id>`,
 matching how the browser itself links to a cheat (see `public/js/script.js`). Defaults to
 `https://cheats.aarontrotter.com`; override with `CHEATSHEET_SITE_URL` if that ever changes.

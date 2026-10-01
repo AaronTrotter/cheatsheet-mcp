@@ -49,11 +49,12 @@ const API_URL = (envLocal.CHEATSHEET_API_URL || process.env.CHEATSHEET_API_URL |
 const API_KEY = envLocal.CHEATSHEET_API_KEY || process.env.CHEATSHEET_API_KEY;
 // The public site (for building clickable links to a cheat) can differ from API_URL — the site
 // lives at a custom domain while the API is called at the underlying Firebase Hosting domain.
-// A cheat's own page is always <SITE_URL>/?code=<id> (see public/js/script.js's share/open links).
+// A cheat's own page is always <SITE_URL>/cheats?code=<id> (see public/js/script.js's share/open
+// links), the same shape as cheatUrl in the site's own functions/common.js.
 const SITE_URL = (envLocal.CHEATSHEET_SITE_URL || process.env.CHEATSHEET_SITE_URL || 'https://cheats.aarontrotter.com').replace(/\/+$/, '');
 
 function cheatUrl(id) {
-	return `${SITE_URL}/?code=${encodeURIComponent(id)}`;
+	return `${SITE_URL}/cheats?code=${encodeURIComponent(id)}`;
 }
 
 if (!API_KEY) {
