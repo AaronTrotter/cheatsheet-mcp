@@ -14,6 +14,16 @@ not track the repository version. Each entry below records where the plugin stoo
 
 ### Added
 
+- `update_penny` in `local-mcp-server/`, matching the hosted MCP Connector, backed by the new
+  `POST /mcp/updatePenny`. Pennies orders can now be edited on Cheatsheet, so a logged order is no
+  longer immutable. The tool is a partial edit: pass the order's `id` and only the fields that
+  change, and everything else keeps its logged value. The edit is append-only underneath, so the
+  order comes back under a new id, and an id that was already superseded answers `409`.
+- `add_penny` takes two new optional flags, matching the Pennies page's paired forms. `alsoStake`
+  on a crypto market buy also logs a stake of the same units, returning `{id, stakeId}`, for
+  platforms that buy a coin as you stake it. `alsoSell` on an unstake also logs a market sell of
+  everything the unstake released (`quantity` plus `rewardQuantity`) at `pricePerUnit`, returning
+  `{id, sellId}`. Both orders of a pair are written in one batch.
 - Four more Dues tools in `local-mcp-server/`, matching the hosted MCP Connector:
   `search_due_payers`, `search_due_services`, `add_due_payer` and `add_due_service`. The first
   five tools could read what was owed and record a one-off charge, but not set up the payer or the
@@ -31,6 +41,8 @@ not track the repository version. Each entry below records where the plugin stoo
 
 ### Changed
 
+- The tool set is now forty tools rather than thirty-nine. `search_pennies`' description now lists
+  every field an order carries, including `orderKind`, `rewardQuantity` and `notes`.
 - `get_cheat` and `get_revisions` now return `ownStars` and `ownPoints` alongside `stars` and
   `points`, and `get_revisions`' description says to rank by the former. Cheatsheet's `stars` and
   `points` are cumulative down a cheat's revision lineage, because each revision inherits every

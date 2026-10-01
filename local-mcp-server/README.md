@@ -6,11 +6,11 @@ modify the tool set or run its own variant. This is one path under Option B (run
 server); see the [root README](../README.md) for the full menu, including Option A for claude.ai,
 Desktop, and mobile, which needs no local install at all.
 
-It exposes all thirty-nine `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
+It exposes all forty `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
 `get_cheat`, `get_revisions`, `add_cheat`, `update_cheat`, `delete_cheat`), Tasks
 (`search_tasks`, `get_task`, `add_task`, `update_task`, `delete_task`), Brain (`search_brain`,
 `get_brain`, `add_brain`, `update_brain`, `delete_brain`), Pennies (`search_pennies`,
-`get_penny_summary`, `add_penny`, `fill_penny`, `void_penny`), Projects (`search_projects`,
+`get_penny_summary`, `add_penny`, `update_penny`, `fill_penny`, `void_penny`), Projects (`search_projects`,
 `add_project`, `search_project_tasks`, `get_project_task`, `add_project_task`,
 `update_project_task`, `move_project_task`, `delete_project_task`), Dues (`search_due_payers`,
 `search_due_services`, `add_due_payer`, `add_due_service`, `search_dues`, `get_due`,
@@ -109,6 +109,7 @@ above is what *other* projects should follow when pointing at this script.
 | `search_pennies` | `GET /mcp/searchPennies` | read |
 | `get_penny_summary` | `GET /mcp/getPennySummary` | read |
 | `add_penny` | `POST /mcp/addPenny` | write |
+| `update_penny` | `POST /mcp/updatePenny` | write |
 | `fill_penny` | `POST /mcp/fillPenny` | write |
 | `void_penny` | `POST /mcp/voidPenny` | write |
 | `search_projects` | `GET /mcp/searchProjects` | read |
@@ -156,9 +157,13 @@ account, which belongs on the page where the allow-list is visible.
 The Pennies tools cover the user's own log of investment orders (crypto, stocks, ETFs, bonds,
 commodities and CFDs) and the portfolio derived from it. `search_pennies` returns the raw orders;
 `get_penny_summary` returns positions, cost basis on the moving-average method, realized profit and
-fees, optionally narrowed to one tax year whose boundaries follow the user's country. A logged order
-is immutable, so there is no `update_penny`: `fill_penny` confirms a pending limit order executed,
-and `void_penny` is the only way one is removed. These are financial records, so log only what the
+fees, optionally narrowed to one tax year whose boundaries follow the user's country.
+`update_penny` corrects an order and takes only the fields that change, keeping everything else as
+logged; like the other append-only edits it returns the order under a new id. `fill_penny` confirms
+a pending limit order executed, and `void_penny` is the only way one is removed. `add_penny` can
+also log a pair in one step, written together so neither half can exist alone: `alsoStake` on a
+crypto buy adds a stake of the same units, and `alsoSell` on an unstake adds a market sell of
+everything it released. These are financial records, so log only what the
 user has actually stated and never guess a price, quantity or date. A read-only key can read this
 section but cannot change it, which is how you keep an integration out of it entirely.
 
@@ -194,7 +199,7 @@ The same goes for a key limited to particular sections of the app (Cheats, Tasks
 Projects, Dues, chosen when the key is created on `/user`): calls outside its sections come back as a 403
 naming the section. Note the difference from the hosted MCP Connector here. The connector knows the
 key's sections at connect time and only offers the tools that key can use, so a narrow key gets a
-short tool list. This script registers all thirty-nine tools whatever the key is, because nothing in the
+short tool list. This script registers all forty tools whatever the key is, because nothing in the
 API tells a key what it is scoped to — so with a narrowed key, some of the tools it advertises will
 answer 403. Prefer the hosted connector when you want the tool list to match the key.
 

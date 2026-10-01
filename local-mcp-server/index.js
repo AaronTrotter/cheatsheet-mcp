@@ -391,7 +391,7 @@ server.registerTool(
 	}
 );
 
-// Pennies: the user's own investment order log. Mirrors the same five tools the hosted connector
+// Pennies: the user's own investment order log. Mirrors the same six tools the hosted connector
 // exposes (functions/routes/db/mcpConnector.js in the cheatsheet repo) — the two surfaces are
 // meant to be interchangeable, so a tool added to one belongs in the other in the same change.
 const PENNY_SIDES = ['buy', 'sell', 'stake', 'unstake', 'reward'];
@@ -402,7 +402,7 @@ server.registerTool(
 	'search_pennies',
 	{
 		title: 'Search pennies',
-		description: 'List the user\'s own logged investment orders (crypto, stocks, ETFs, bonds, commodities, CFDs), newest first. Returns each order\'s id, side, itemType, assetName, platform, currency, quantity, pricePerUnit, fees, tax, date, status and walletId, plus totalPages for pagination and the type/asset values available to filter on. This is the raw order log; call get_penny_summary for positions and profit.',
+		description: 'List the user\'s own logged investment orders (crypto, stocks, ETFs, bonds, commodities, CFDs), newest first. Returns each order\'s id, side, itemType, orderKind, status, assetName, platform, currency, quantity, pricePerUnit, rewardQuantity, fees, tax, date, notes and walletId, plus totalPages for pagination and the type/asset values available to filter on. This is the raw order log; call get_penny_summary for positions and profit.',
 		inputSchema: {
 			itemType: z.enum(PENNY_ITEM_TYPES).optional().describe('Restrict to one instrument type.'),
 			assetName: z.string().optional().describe('Restrict to one asset, e.g. \'BTC\'. Applied within itemType when both are given.'),
@@ -447,11 +447,43 @@ server.registerTool(
 			fees: z.number().optional().describe('Total fees paid on this order (default 0).'),
 			tax: z.number().optional().describe('Total tax paid or withheld on this order (default 0).'),
 			date: z.number().optional().describe('Trade date as a millisecond timestamp. Defaults to now; backdate it to the real trade date, which is what the currency conversion uses.'),
-			notes: z.string().max(200).optional().describe('Optional note (max 200 chars).')
+			notes: z.string().max(200).optional().describe('Optional note (max 200 chars).'),
+			alsoStake: z.boolean().optional().describe('Crypto market buy only: also log a stake of the same units, for platforms that buy the coin as you stake it. Writes both orders together and returns {id, stakeId}. Fees and tax go on the buy.'),
+			alsoSell: z.boolean().optional().describe('Unstake only: also log a market sell of everything the unstake released (quantity plus rewardQuantity) at pricePerUnit, for cashing a staked position out in one step. Writes both orders together and returns {id, sellId}. Fees and tax go on the sell.')
 		}
 	},
 	async (args) => {
 		return textResult(await callApi('POST', '/mcp/addPenny', { body: { ...args, date: args.date ?? Date.now() } }));
+	}
+);
+
+server.registerTool(
+	'update_penny',
+	{
+		title: 'Update penny order',
+		description: 'Correct a logged order. Requires a write-scoped API key. Pass only the fields that change: anything omitted keeps what was logged. Append-only under the hood, so the order comes back with a new id; there is no visible revision history. A limit order already confirmed filled stays filled. This rewrites the user\'s financial record, so change only what they have told you was wrong.',
+		inputSchema: {
+			id: z.string().describe('The order\'s id.'),
+			side: z.enum(PENNY_SIDES).optional().describe('New side. stake, unstake and reward are crypto only.'),
+			itemType: z.enum(PENNY_ITEM_TYPES).optional().describe('New instrument type.'),
+			assetName: z.string().max(20).optional().describe('New ticker or short name (max 20 chars).'),
+			currency: z.string().optional().describe('New ISO 4217 currency code.'),
+			quantity: z.number().positive().optional().describe('New quantity.'),
+			pricePerUnit: z.number().optional().describe('New price per unit in the order\'s currency. For a pending limit order this is the target price.'),
+			orderKind: z.enum(PENNY_ORDER_KINDS).optional().describe('\'market\' or \'limit\'.'),
+			rewardQuantity: z.number().optional().describe('Unstake only: extra units paid out alongside the unstaked amount.'),
+			platform: z.string().max(30).optional().describe('New platform. Pass an empty string to clear it.'),
+			walletId: z.string().max(100).optional().describe('Crypto only: new wallet address. Pass an empty string to clear it.'),
+			fees: z.number().optional().describe('New total fees.'),
+			tax: z.number().optional().describe('New total tax.'),
+			date: z.number().optional().describe('New trade date as a millisecond timestamp.'),
+			notes: z.string().max(200).optional().describe('New note (max 200 chars). Pass an empty string to clear it.')
+		}
+	},
+	async (args) => {
+		// Omitted fields stay undefined and drop out of the JSON body, which is what tells
+		// /mcp/updatePenny to keep the stored value.
+		return textResult(await callApi('POST', '/mcp/updatePenny', { body: args }));
 	}
 );
 
