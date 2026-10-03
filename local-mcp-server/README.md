@@ -231,3 +231,10 @@ pointing at the cheat's page — per result for `search_cheats`, per revision fo
 top-level for `get_cheat`/`add_cheat`/`update_cheat` — `<CHEATSHEET_SITE_URL>/cheats?code=<id>`,
 matching how the browser itself links to a cheat (see `public/js/script.js`). Defaults to
 `https://cheats.aarontrotter.com`; override with `CHEATSHEET_SITE_URL` if that ever changes.
+
+`add_cheat` and `update_cheat` take the body as tagged text: `[note]...[/note]` for headings and
+short explanations, `[var]...[/var]` for placeholders, `[link=https://...]label[/link]` for a
+labelled link, with bare URLs and trailing `//` comments coloured automatically. The server turns
+these into the editor's own notes, variables and links. `get_cheat` returns the body the same way,
+as the API's `markup` field, and drops the API's offset-based `body`, so a cheat read, edited and
+passed back keeps its formatting.
