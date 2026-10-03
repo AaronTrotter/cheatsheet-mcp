@@ -47,7 +47,10 @@ just the browser (or Desktop app) it was configured in. Two ways to authenticate
   `/.well-known/oauth-protected-resource`) and a `WWW-Authenticate` challenge on `/mcp`'s `401`, so
   an OAuth-aware client detects the flow automatically and shows a normal Cheatsheet sign-in and
   consent screen instead of asking for a key — a scoped key is minted and handed over behind the
-  scenes, never visible to you or typed anywhere. This is server-side behavior
+  scenes, never visible to you or typed anywhere. The consent screen also lists the app's sections
+  (Cheats, Tasks, Brain, Pennies, Projects, Hours, Dues), all ticked; untick any the connector
+  shouldn't reach and it's offered only the remaining sections' tools. You can change the choice
+  later from `/user` → API Access without reconnecting. This is server-side behavior
   (`functions/routes/db/oauth.js` in the [cheatsheet](https://github.com/AaronTrotter/cheatsheet)
   repo) — nothing to install here.
 - **Paste an API key.** If your client doesn't support the sign-in flow, create a key at
