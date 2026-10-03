@@ -53,6 +53,12 @@ const API_KEY = envLocal.CHEATSHEET_API_KEY || process.env.CHEATSHEET_API_KEY;
 // links), the same shape as cheatUrl in the site's own functions/common.js.
 const SITE_URL = (envLocal.CHEATSHEET_SITE_URL || process.env.CHEATSHEET_SITE_URL || 'https://cheats.aarontrotter.com').replace(/\/+$/, '');
 
+// add_cheat/update_cheat take the body as tagged text, which the site converts into the editor's
+// note/variable/link decorations (functions/cheatMarkup.js in the cheatsheet repo, applied by
+// /mcp/addCheat and /mcp/updateCheat whenever only body.text is sent). Repeated word for word from
+// the hosted connector, since the two tool sets are meant to be indistinguishable.
+const CHEAT_TEXT_DESCRIPTION = 'The cheat body. Format it, as the site\'s own cheats are: wrap headings and short explanations in [note]...[/note], placeholders the reader substitutes (a username, path, IP, key) in [var]...[/var], and labelled links as [link=https://...]label[/link]. A bare https:// URL becomes a link to itself, and a trailing //comment becomes a note, without any tags. Example: "[note]Add a user[/note]\\nuseradd -m [var]UserName[/var] //creates the home dir\\n[link=https://man7.org/linux/man-pages/man8/useradd.8.html]useradd docs[/link]"';
+
 function cheatUrl(id) {
 	return `${SITE_URL}/cheats?code=${encodeURIComponent(id)}`;
 }
@@ -120,13 +126,16 @@ server.registerTool(
 	'get_cheat',
 	{
 		title: 'Get cheat',
-		description: 'Fetch the full body of one cheat by id (as returned by search_cheats). Includes a clickable url.',
+		description: 'Fetch the full body of one cheat by id (as returned by search_cheats). Includes a clickable url. The body comes back as `markup`, tagged text in the same format add_cheat and update_cheat take, so it can be edited and passed straight back as update_cheat\'s text without losing any formatting.',
 		inputSchema: {
 			id: z.string().describe('The cheat id.')
 		}
 	},
 	async ({ id }) => {
+		// `markup` carries the same content as the offset-based `body` in a form an agent can read
+		// and edit, so the raw body is left out rather than sent twice.
 		const data = await callApi('GET', '/mcp/getCheat', { query: { id } });
+		delete data.body;
 		data.url = cheatUrl(data.id);
 		return textResult(data);
 	}
@@ -156,7 +165,7 @@ server.registerTool(
 		inputSchema: {
 			title: z.string().max(40).describe('Cheat title (max 40 chars).'),
 			typeName: z.string().describe('Type/category name; created if it doesn\'t already exist.'),
-			text: z.string().describe('The cheat body text.'),
+			text: z.string().describe(CHEAT_TEXT_DESCRIPTION),
 			private: z.boolean().describe('Whether the cheat is private to this account.')
 		}
 	},
@@ -178,7 +187,7 @@ server.registerTool(
 			id: z.string().describe('Id of the cheat to revise.'),
 			title: z.string().max(40).describe('New title (max 40 chars).'),
 			typeName: z.string().describe('New type/category name.'),
-			text: z.string().describe('New cheat body text.'),
+			text: z.string().describe(CHEAT_TEXT_DESCRIPTION),
 			private: z.boolean().describe('Whether the revised cheat is private to this account.')
 		}
 	},

@@ -14,6 +14,15 @@ not track the repository version. Each entry below records where the plugin stoo
 
 ### Added
 
+- Formatted cheats from `add_cheat` and `update_cheat` in `local-mcp-server/`, matching the hosted
+  MCP Connector. The `text` field now takes tags: `[note]...[/note]` for headings and short
+  explanations, `[var]...[/var]` for placeholders the reader substitutes, and
+  `[link=https://...]label[/link]` for a labelled link. Cheatsheet turns them into the same
+  coloured notes, variables and links its editor makes, and also colours a bare `https://` URL as a
+  link and a trailing `//comment` as a note with no tags at all. Until now everything an agent
+  wrote arrived as uncoloured plain text. `get_cheat` returns the body the same way, as `markup`,
+  in place of the raw offset-based `body`, so a cheat read and passed back to `update_cheat` keeps
+  its formatting instead of losing it on every edit.
 - Seven Hours tools in `local-mcp-server/`, matching the hosted MCP Connector, backed by new
   `/mcp/*` endpoints: `search_hour_projects`, `add_hour_project`, `search_hour_entries`,
   `get_hours_summary`, `add_hour_entry`, `update_hour_entry` and `delete_hour_entry`. Hours, the
