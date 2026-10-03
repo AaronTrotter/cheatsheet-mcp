@@ -14,6 +14,16 @@ not track the repository version. Each entry below records where the plugin stoo
 
 ### Added
 
+- Seven Hours tools in `local-mcp-server/`, matching the hosted MCP Connector, backed by new
+  `/mcp/*` endpoints: `search_hour_projects`, `add_hour_project`, `search_hour_entries`,
+  `get_hours_summary`, `add_hour_entry`, `update_hour_entry` and `delete_hour_entry`. Hours, the
+  time log on Cheatsheet, had no API or MCP surface until now. API keys can be scoped to the new
+  `hours` section, and an unrestricted key reaches it straight away. `add_hour_entry` takes the
+  day as `YYYY-MM-DD` and the duration as `hours` plus `minutes` in 15-minute steps.
+  `update_hour_entry` is a partial edit like `update_penny`, returning the entry under a new id.
+  Each entry keeps the rate it was logged at, so editing one never reprices it unless a rate is
+  passed or it moves project. Changing a project's rate, archiving and deleting a project stay
+  browser-only, since the first reprices later work and the last ceases every hour on it.
 - `update_penny` in `local-mcp-server/`, matching the hosted MCP Connector, backed by the new
   `POST /mcp/updatePenny`. Pennies orders can now be edited on Cheatsheet, so a logged order is no
   longer immutable. The tool is a partial edit: pass the order's `id` and only the fields that
@@ -46,7 +56,8 @@ not track the repository version. Each entry below records where the plugin stoo
 - `add_task` and `update_task` descriptions in `local-mcp-server/` now use the hosted MCP
   Connector's wording word for word ("Task title", "The task body text", "An expired task"). No
   schema changed.
-- The tool set is now forty tools rather than thirty-nine. `search_pennies`' description now lists
+- The tool set is now forty-seven tools: thirty-nine, plus `update_penny`, plus the seven Hours
+  tools. `search_pennies`' description now lists
   every field an order carries, including `orderKind`, `rewardQuantity` and `notes`.
 - `get_cheat` and `get_revisions` now return `ownStars` and `ownPoints` alongside `stars` and
   `points`, and `get_revisions`' description says to rank by the former. Cheatsheet's `stars` and

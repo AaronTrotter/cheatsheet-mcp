@@ -644,6 +644,133 @@ server.registerTool(
 	}
 );
 
+// Hours: the user's own time log, and what that time earned. Mirrors the same seven tools the
+// hosted connector exposes (functions/routes/db/mcpConnector.js in the cheatsheet repo). Two
+// collections behind it, so two sets of tools: the hours projects time is logged against (not the
+// Kanban boards above), then the entries. Editing, archiving and deleting a project are
+// deliberately not exposed on either surface: a rate change reprices everything logged from then
+// on, and deleting a project ceases every hour on it.
+const HOURS_GRANULARITIES = ['day', 'week', 'month', 'year'];
+const HOURS_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+server.registerTool(
+	'search_hour_projects',
+	{
+		title: 'Search hour projects',
+		description: 'List the projects the user logs time against, sorted by company then name. Returns id, name, company, hourlyRate, currency, archived and createdDateMs for each. These are Hours projects, a separate list from the Kanban boards search_projects returns: call this to turn a project or client name into the projectId the other hours tools need. Archived projects are finished clients, left out unless asked for, and their hours still count in every total.',
+		inputSchema: {
+			includeArchived: z.boolean().optional().describe('Include archived projects. Default false.')
+		}
+	},
+	async ({ includeArchived }) => {
+		return textResult(await callApi('GET', '/mcp/searchHourProjects', { query: { includeArchived: includeArchived ? '1' : undefined } }));
+	}
+);
+
+server.registerTool(
+	'add_hour_project',
+	{
+		title: 'Add hour project',
+		description: 'Create a project to log time against, carrying the hourly rate that prices work on it. Requires a write-scoped API key. Check search_hour_projects first: a near-duplicate splits one client\'s hours across two projects. The rate is the user\'s own billing rate, so take it from them and never guess it. Changing a project\'s rate, archiving it and deleting it are done in the browser.',
+		inputSchema: {
+			name: z.string().max(40).describe('Project name (max 40 chars).'),
+			company: z.string().max(40).optional().describe('The client or company the work is billed to (max 40 chars). Groups the project list, and is what a timesheet export is picked by.'),
+			hourlyRate: z.number().min(0).max(100000).describe('Default hourly rate, in `currency`. Each entry keeps the rate in force when it was logged, so this only ever prices future work.'),
+			currency: z.string().describe('ISO 4217 currency code, e.g. \'GBP\'.')
+		}
+	},
+	async (args) => {
+		return textResult(await callApi('POST', '/mcp/addHourProject', { body: args }));
+	}
+);
+
+server.registerTool(
+	'search_hour_entries',
+	{
+		title: 'Search hour entries',
+		description: 'List the user\'s logged time, newest first, 30 per page. Returns each entry\'s id, projectID, projectName, company, date (UTC midnight of the day worked, as a millisecond timestamp), minutes, description, hourlyRate, currency, amount (what it earned), rateOverridden and createdDateMs, plus totalPages, the filters actually applied, and the companies and projects available to filter on. Call get_hours_summary for totals rather than adding these up yourself.',
+		inputSchema: {
+			projectId: z.string().optional().describe('Restrict to one hours project, by id from search_hour_projects.'),
+			company: z.string().optional().describe('Restrict to one company, matched exactly.'),
+			page: z.number().int().min(1).optional().describe('1-indexed page number (default 1).')
+		}
+	},
+	async ({ projectId, company, page }) => {
+		return textResult(await callApi('GET', '/mcp/searchHourEntries', { query: { projectId, company, page } }));
+	}
+);
+
+server.registerTool(
+	'get_hours_summary',
+	{
+		title: 'Get hours summary',
+		description: 'Totals rather than the raw log: time worked and money earned today, this week, this month, this year and all time, plus a breakdown of up to 24 rows at the granularity asked for, newest first. Weeks run Monday to Sunday, and every boundary is UTC. Money comes back per currency, and additionally converted into the user\'s base currency only when every entry in that tally could be converted, so a null baseAmount means mixed or unconvertible currencies rather than zero.',
+		inputSchema: {
+			granularity: z.enum(HOURS_GRANULARITIES).optional().describe('What each breakdown row covers: \'day\' (default), \'week\', \'month\' or \'year\'. The five headline totals come back either way.'),
+			projectId: z.string().optional().describe('Restrict to one hours project, by id.'),
+			company: z.string().optional().describe('Restrict to one company, matched exactly.')
+		}
+	},
+	async ({ granularity, projectId, company }) => {
+		return textResult(await callApi('GET', '/mcp/getHoursSummary', { query: { granularity, projectId, company } }));
+	}
+);
+
+server.registerTool(
+	'add_hour_entry',
+	{
+		title: 'Add hour entry',
+		description: 'Log a block of time worked on one project. Requires a write-scoped API key. This is a billing record, so log only time the user has actually told you about, and never guess a duration or a day. The entry is priced at the project\'s current hourly rate unless hourlyRate is given, and keeps that rate even if the project\'s rate changes later. Time is logged in 15-minute steps, at most 24 hours per entry, so work spread over several days wants an entry per day.',
+		inputSchema: {
+			projectId: z.string().describe('Id of the hours project, from search_hour_projects.'),
+			date: z.string().regex(HOURS_DAY).describe('The day the work was done, as YYYY-MM-DD.'),
+			hours: z.number().int().min(0).optional().describe('Whole hours worked.'),
+			minutes: z.number().int().min(0).optional().describe('Minutes on top of `hours`. Together they must come to a multiple of 15 minutes, from 15 minutes to 24 hours: an hour and a half is hours 1, minutes 30.'),
+			description: z.string().max(200).describe('What was done (max 200 chars).'),
+			hourlyRate: z.number().min(0).max(100000).optional().describe('Only when the user says this job is billed at something other than the project\'s usual rate, in the project\'s currency.')
+		}
+	},
+	async ({ projectId, ...args }) => {
+		return textResult(await callApi('POST', '/mcp/addHourEntry', { body: { ...args, projectID: projectId } }));
+	}
+);
+
+server.registerTool(
+	'update_hour_entry',
+	{
+		title: 'Update hour entry',
+		description: 'Correct a logged entry. Requires a write-scoped API key. Pass only the fields that change: anything omitted keeps what was logged. hours and minutes restate the whole duration together, so hours alone means exactly that many hours. The entry keeps the rate it was saved at unless you pass hourlyRate or move it to another project, which prices it at that project\'s current rate. Append-only under the hood, so the entry comes back with a new id; there is no visible revision history. This rewrites a billing record, so change only what the user has told you was wrong.',
+		inputSchema: {
+			id: z.string().describe('The entry\'s id.'),
+			projectId: z.string().optional().describe('Move the entry to another hours project, by id.'),
+			date: z.string().regex(HOURS_DAY).optional().describe('New day the work was done, as YYYY-MM-DD.'),
+			hours: z.number().int().min(0).optional().describe('New whole hours.'),
+			minutes: z.number().int().min(0).optional().describe('New minutes on top of `hours`. Together a multiple of 15 minutes, from 15 minutes to 24 hours.'),
+			description: z.string().max(200).optional().describe('New description (max 200 chars).'),
+			hourlyRate: z.number().min(0).max(100000).optional().describe('New hourly rate for this entry alone, in the project\'s currency.')
+		}
+	},
+	async ({ projectId, ...changes }) => {
+		// Omitted fields stay undefined and drop out of the JSON body, which is what tells
+		// /mcp/updateHourEntry to keep what the entry already says.
+		return textResult(await callApi('POST', '/mcp/updateHourEntry', { body: { ...changes, projectID: projectId } }));
+	}
+);
+
+server.registerTool(
+	'delete_hour_entry',
+	{
+		title: 'Delete hour entry',
+		description: 'Delete a logged entry. Requires a write-scoped API key. A soft delete like delete_cheat, but the time stops counting toward every total and every timesheet export, so only do it when the user has asked for that specific entry to go.',
+		inputSchema: {
+			id: z.string().describe('The entry\'s id.')
+		}
+	},
+	async ({ id }) => {
+		return textResult(await callApi('POST', '/mcp/deleteHourEntry', { body: { id } }));
+	}
+);
+
 // Dues: money other people owe the user. Mirrors the same nine tools the hosted connector exposes
 // (functions/routes/db/mcpConnector.js in the cheatsheet repo) — the two surfaces are meant to be
 // interchangeable, so a tool added to one belongs in the other in the same change.

@@ -6,16 +6,18 @@ modify the tool set or run its own variant. This is one path under Option B (run
 server); see the [root README](../README.md) for the full menu, including Option A for claude.ai,
 Desktop, and mobile, which needs no local install at all.
 
-It exposes all forty `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
+It exposes all forty-seven `/mcp/*` endpoints as MCP tools over stdio — cheats (`search_cheats`,
 `get_cheat`, `get_revisions`, `add_cheat`, `update_cheat`, `delete_cheat`), Tasks
 (`search_tasks`, `get_task`, `add_task`, `update_task`, `delete_task`), Brain (`search_brain`,
 `get_brain`, `add_brain`, `update_brain`, `delete_brain`), Pennies (`search_pennies`,
 `get_penny_summary`, `add_penny`, `update_penny`, `fill_penny`, `void_penny`), Projects (`search_projects`,
 `add_project`, `search_project_tasks`, `get_project_task`, `add_project_task`,
-`update_project_task`, `move_project_task`, `delete_project_task`), Dues (`search_due_payers`,
+`update_project_task`, `move_project_task`, `delete_project_task`), Hours (`search_hour_projects`,
+`add_hour_project`, `search_hour_entries`, `get_hours_summary`, `add_hour_entry`,
+`update_hour_entry`, `delete_hour_entry`), Dues (`search_due_payers`,
 `search_due_services`, `add_due_payer`, `add_due_service`, `search_dues`, `get_due`,
 `get_dues_summary`, `add_due`, `mark_due_paid`) and `get_guides` — so Claude
-Code can browse or update your cheats, tasks, board, investment log and what you are owed without
+Code can browse or update your cheats, tasks, board, investment log, time log and what you are owed without
 an API key ever being typed into a chat.
 That's the same tool set the hosted MCP Connector, the Claude Code plugin, and the MCP proxy
 expose, so switching between them doesn't change what an agent can do.
@@ -120,6 +122,13 @@ above is what *other* projects should follow when pointing at this script.
 | `update_project_task` | `POST /mcp/updateProjectTask` | write |
 | `move_project_task` | `POST /mcp/moveProjectTask` | write |
 | `delete_project_task` | `POST /mcp/deleteProjectTask` | write |
+| `search_hour_projects` | `GET /mcp/searchHourProjects` | read |
+| `add_hour_project` | `POST /mcp/addHourProject` | write |
+| `search_hour_entries` | `GET /mcp/searchHourEntries` | read |
+| `get_hours_summary` | `GET /mcp/getHoursSummary` | read |
+| `add_hour_entry` | `POST /mcp/addHourEntry` | write |
+| `update_hour_entry` | `POST /mcp/updateHourEntry` | write |
+| `delete_hour_entry` | `POST /mcp/deleteHourEntry` | write |
 | `search_due_payers` | `GET /mcp/searchDuePayers` | read |
 | `search_due_services` | `GET /mcp/searchDueServices` | read |
 | `add_due_payer` | `POST /mcp/addDuePayer` | write |
@@ -167,6 +176,20 @@ everything it released. These are financial records, so log only what the
 user has actually stated and never guess a price, quantity or date. A read-only key can read this
 section but cannot change it, which is how you keep an integration out of it entirely.
 
+The Hours tools cover the user's own time log and what it earned. An hours project carries an
+hourly rate and an optional company, and is a separate list from the Kanban boards above, so
+`search_hour_projects` is where a `projectId` for the entry tools comes from. `search_hour_entries`
+returns the raw log, newest first, 30 to a page; `get_hours_summary` returns today, this week, this
+month, this year and all time, plus a breakdown by day, week, month or year, every boundary in UTC.
+`add_hour_entry` takes the day as `YYYY-MM-DD` and the duration as `hours` plus `minutes`, in
+15-minute steps up to 24 hours. Each entry keeps the rate it was logged at, so a project's rate only
+ever prices future work. `update_hour_entry` is a partial edit like `update_penny`: it keeps
+anything left out, and returns the entry under a new id. `hours` and `minutes` restate the duration
+together, and the entry keeps its rate unless one is passed or it moves to another project.
+`add_hour_project` is the only project write here: changing a rate, archiving and deleting a
+project stay in the browser, since the first reprices everything logged from then on and the last
+ceases every hour on the project.
+
 The Dues tools cover what other people owe the user: a payer is a client or a tenant, a service is
 one recurring thing they are billed for, and a due is one amount owed on one date. `search_dues`
 returns the raw ledger, unpaid before paid and oldest first within each, with `overdue` and
@@ -196,10 +219,10 @@ A key without the required scope gets a normal 401 from the API — the server h
 of its own, it just forwards the key and reports back whatever the API says.
 
 The same goes for a key limited to particular sections of the app (Cheats, Tasks, Brain, Pennies,
-Projects, Dues, chosen when the key is created on `/user`): calls outside its sections come back as a 403
+Projects, Hours, Dues, chosen when the key is created on `/user`): calls outside its sections come back as a 403
 naming the section. Note the difference from the hosted MCP Connector here. The connector knows the
 key's sections at connect time and only offers the tools that key can use, so a narrow key gets a
-short tool list. This script registers all forty tools whatever the key is, because nothing in the
+short tool list. This script registers all forty-seven tools whatever the key is, because nothing in the
 API tells a key what it is scoped to — so with a narrowed key, some of the tools it advertises will
 answer 403. Prefer the hosted connector when you want the tool list to match the key.
 
